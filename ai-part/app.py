@@ -6,6 +6,15 @@ load_dotenv()
 
 # ✅ DEFINE APP FIRST
 app = FastAPI(title="Donation Recommendation Service")
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],          # allow ALL
+    allow_credentials=False,      # MUST be False with "*"
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 import pandas as pd
 from sqlalchemy import create_engine
