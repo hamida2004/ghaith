@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../style/style";
-import { RequestCard } from "../components/RequestCardUser";
+import { RequestCard } from "../components/RequestCard";
 import { DonationModal } from "../components/DonationModal";
 import { PageContainer } from "../components/PageContainer";
 import { Button } from "../components/Button";
@@ -75,7 +75,6 @@ const EmptyContainer = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
   margin-top: 40px;
 `;
 
@@ -97,6 +96,7 @@ export const HomePage = () => {
 
   const [requests, setRequests] = useState([]);
   const [recommended, setRecommended] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [user, setUser] = useState(null);
 
   const [search, setSearch] = useState("");
@@ -112,60 +112,98 @@ export const HomePage = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const userId = 1;
+        // USER
+        const userRes = await axios.get("/users/me");
+        const userData = userRes.data;
+        setUser(userData);
 
-        const [reqRes, aiRes, userRes] = await Promise.all([
+        const userId = userData.id;
+
+        // PARALLEL FETCH
+        const [reqRes, aiRes, catRes] = await Promise.all([
           axios.get("/requests"),
           ai.get(`/recommend/${userId}`),
-          axios.get("/users/me")
+          axios.get("/categories")
         ]);
 
-        setUser(userRes.data);
-        console.log(user,"/////////////////////////")
-        console.log(reqRes.data,"/////////////////////////")
+        setCategories(catRes.data);
 
-        const filteredRequests = reqRes.data.filter(
+        const allRequests = reqRes.data;
+        const aiRequests = aiRes.data.recommendations || [];
+
+        // MAP FULL DATA
+        const requestMap = {};
+        allRequests.forEach(r => {
+          requestMap[r.id] = r;
+        });
+
+        const fullAI = aiRequests.map(r =>
+          requestMap[r.id] ? requestMap[r.id] : r
+        );
+
+        // MERGE
+        const merged = [
+          ...fullAI,
+          ...allRequests.filter(r =>
+            !fullAI.some(ai => ai.id === r.id)
+          )
+        ];
+
+        // FILTER OUT SATISFIED
+        const filtered = merged.filter(
           r => r.donation_status !== "satisfied"
         );
 
-        setRequests(filteredRequests || reqRes.data);
-        setRecommended(aiRes.data.recommendations || []);
+        setRequests(filtered);
+        setRecommended(fullAI);
 
       } catch (err) {
-        console.error(err);
+        console.error("FETCH ERROR:", err);
       }
     };
 
     fetchData();
-  }, []);
+  }, [selectedRequest]);
 
   // =====================
-  // MERGE
+  // MERGE FOR DISPLAY
   // =====================
   const merged = [
     ...recommended,
-    ...requests.filter(
-      r => !recommended.find(rec => rec.id === r.id)
+    ...requests.filter(r =>
+      !recommended.find(rec => rec.id === r.id)
     )
   ];
 
-  const categories = [
-    "all",
-    ...new Set(merged.map(r => r.category))
+  // =====================
+  // CATEGORY OPTIONS
+  // =====================
+  const categoryOptions = [
+    { id: "all", name: "All Categories" },
+    ...categories
   ];
 
+  // =====================
+  // FILTER
+  // =====================
   const filtered = merged
     .filter(r =>
       r.title.toLowerCase().includes(search.toLowerCase())
     )
-    .filter(r => category === "all" || r.category === category)
     .filter(r =>
-      status === "all" ? true : r.donation_status === status
+      category === "all"
+        ? true
+        : r.Category?.id === Number(category)
+    )
+    .filter(r =>
+      status === "all"
+        ? true
+        : r.donation_status === status
     )
     .sort((a, b) =>
       sort === "desc"
-        ? new Date(b.date) - new Date(a.date)
-        : new Date(a.date) - new Date(b.date)
+        ? new Date(b.createdAt) - new Date(a.createdAt)
+        : new Date(a.createdAt) - new Date(b.createdAt)
     );
 
   const resetFilters = () => {
@@ -175,10 +213,13 @@ export const HomePage = () => {
     setSort("desc");
   };
 
+  // =====================
+  // UI
+  // =====================
   return (
     <PageContainer>
 
-      {/* STATUS BANNER */}
+      {/* STATUS */}
       {user && user.status !== "active" && (
         <Banner>
           <span>
@@ -186,7 +227,7 @@ export const HomePage = () => {
           </span>
 
           <Button
-            handleClick={() => navigate("/profile/1")}
+            handleClick={() => navigate(`/profile/${user.id}`)}
             content="Activate"
           />
         </Banner>
@@ -197,7 +238,7 @@ export const HomePage = () => {
         <Title>Available Requests</Title>
 
         <Button
-          handleClick={() => navigate("/requests/1")}
+          handleClick={() => navigate(`/requests/${user?.id}`)}
           content="My Requests"
         />
       </Header>
@@ -210,10 +251,13 @@ export const HomePage = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
-          {categories.map(c => (
-            <option key={c} value={c}>
-              {c === "all" ? "All Categories" : c}
+        <Select
+          value={category}
+          onChange={(e) => setCategory(e.target.value)}
+        >
+          {categoryOptions.map(c => (
+            <option key={c.id} value={c.id}>
+              {c.name}
             </option>
           ))}
         </Select>
@@ -239,7 +283,7 @@ export const HomePage = () => {
             <RequestCard
               key={r.id}
               request={r}
-              onDonate={() => setSelectedRequest(r)}
+              onDonate={(req) => setSelectedRequest(req)}
             />
           ))}
         </List>
@@ -255,8 +299,29 @@ export const HomePage = () => {
         <DonationModal
           request={selectedRequest}
           onClose={() => setSelectedRequest(null)}
+          onSuccess={(requestId, amount) => {
+            setRequests(prev =>
+              prev.map(r => {
+                if (r.id !== requestId) return r;
+
+                const newAmount =
+                  parseFloat(r.collected_amount) + amount;
+
+                let status = "not_satisfied";
+                if (newAmount >= r.target_amount) status = "satisfied";
+                else if (newAmount > 0) status = "partially";
+
+                return {
+                  ...r,
+                  collected_amount: newAmount,
+                  donation_status: status
+                };
+              })
+            );
+          }}
         />
       )}
+
     </PageContainer>
   );
 };

@@ -11,7 +11,11 @@ const Donation = sequelize.define("Donation", {
     type: DataTypes.DECIMAL(10, 2), // ✅ FIXED (was FLOAT)
     allowNull: false
   },
-  notes: DataTypes.TEXT
+  notes: DataTypes.TEXT,
+  status: {
+  type: DataTypes.ENUM("pending", "confirmed", "rejected"),
+  defaultValue: "pending"
+}
 }, {
   timestamps: true
 });

@@ -7,6 +7,11 @@ import { colors } from "../style/style";
 import { EmptyState } from "../components/EmptyState";
 
 // =====================
+// CONFIG
+// =====================
+const BACKEND_URL = "https://ghaith-backend.onrender.com"; // 🔁 change in production
+
+// =====================
 // STYLES
 // =====================
 const Header = styled.div`
@@ -72,9 +77,7 @@ export const ManageUsers = () => {
       try {
         const res = await axios.get("/users");
 
-        // normalize Sequelize response
         const clean = res.data.map(u => u.dataValues || u);
-
         setUsers(clean);
       } catch (err) {
         console.error(err);
@@ -82,7 +85,7 @@ export const ManageUsers = () => {
         setLoading(false);
       }
     };
-
+    console.log(users,'.;/;.;')
     fetchUsers();
   }, []);
 
@@ -139,20 +142,37 @@ export const ManageUsers = () => {
     }
   };
 
+  // ✅ VIEW DOCUMENT
+  const viewDocument = (filePath) => {
+    const fullUrl = `${BACKEND_URL}${filePath}`;
+    window.open(fullUrl, "_blank");
+  };
+
   // =====================
   // FILTER
   // =====================
-  const filtered = users
-    .filter(u =>
-      (u.name || "").toLowerCase().includes(search.toLowerCase())
-    )
-    .filter(u => {
-      if (roleFilter === "all") return true;
-      if (roleFilter === "admin") return u.is_admin;
-      return !u.is_admin;
-    })
-    .filter(u => typeFilter === "all" || u.type === typeFilter);
+  const normalizedSearch = search.trim().toLowerCase();
 
+const filtered = users.filter((u) => {
+  const name = (u.name || "").toLowerCase();
+  const email = (u.email || "").toLowerCase();
+
+  const matchesSearch =
+    name.includes(normalizedSearch) ||
+    email.includes(normalizedSearch);
+
+  const matchesRole =
+    roleFilter === "all"
+      ? true
+      : roleFilter === "admin"
+      ? u.is_admin === true
+      : u.is_admin === false;
+
+  const matchesType =
+    typeFilter === "all" ? true : u.type === typeFilter;
+
+  return matchesSearch && matchesRole && matchesType;
+});
   // =====================
   // UI
   // =====================
@@ -188,18 +208,19 @@ export const ManageUsers = () => {
         <List>
           {filtered.map(u => (
             <UserCard
-  key={u.id}
-  user={u}
-  onToggleAdmin={() => toggleAdmin(u.id)}
-  onActivate={() => updateStatus(u.id, "active")}
-  onReject={() => updateStatus(u.id, "rejected")}
-  onApproveDoc={(docId) => updateDocument(docId, "approved")}
-  onRejectDoc={(docId) => {
-    const reason = prompt("Rejection reason:");
-    if (!reason) return;
-    updateDocument(docId, "rejected", reason);
-  }}
-/>
+              key={u.id}
+              user={u}
+              onToggleAdmin={() => toggleAdmin(u.id)}
+              onActivate={() => updateStatus(u.id, "active")}
+              onReject={() => updateStatus(u.id, "rejected")}
+              onApproveDoc={(docId) => updateDocument(docId, "approved")}
+              onRejectDoc={(docId) => {
+                const reason = prompt("Rejection reason:");
+                if (!reason) return;
+                updateDocument(docId, "rejected", reason);
+              }}
+              onViewDoc={(filePath) => viewDocument(filePath)}
+            />
           ))}
         </List>
       ) : (

@@ -23,13 +23,6 @@ const Title = styled.h4`
   margin: 0;
 `;
 
-const Badge = styled.span`
-  padding: 4px 10px;
-  border-radius: 10px;
-  font-size: 13px;
-  color: white;
-  background-color: ${props => props.bg};
-`;
 
 const Details = styled.div`
   margin-top: 10px;
@@ -67,26 +60,22 @@ export const RequestCard = ({
   isAdmin = false
 }) => {
   const [open, setOpen] = useState(false);
-
+  console.log("888888 ",request)
   return (
     <Card>
-      {/* HEADER */}
       <Header onClick={() => setOpen(!open)}>
         <div>
           <Title>{request.title}</Title>
 
           <p>
-            {(request.user?.name || "Unknown")} •{" "}
-            {(request.Category?.name || request.category || "No category")}
+            {request.User?.name || "Unknown"} •{" "}
+            {request.Category?.name || request.category || "No category"}
           </p>
         </div>
 
-        <Badge bg={getStatusColor(request.status)}>
-          {request.status}
-        </Badge>
+        
       </Header>
 
-      {/* DETAILS */}
       {open && (
         <Details>
           <Row><strong>Description:</strong> {request.description}</Row>
@@ -101,17 +90,13 @@ export const RequestCard = ({
               : "N/A"}
           </Row>
 
-          {/* =====================
-              ACTIONS
-          ===================== */}
           <Actions>
-            {/* ADMIN ACTIONS */}
+            {/* =====================
+                ADMIN ACTIONS
+            ===================== */}
             {isAdmin && request.status === "pending" && (
               <>
-                <Button
-                  content="Accept"
-                  handleClick={onAccept}
-                />
+                <Button content="Accept" handleClick={onAccept} />
                 <Button
                   content="Refuse"
                   handleClick={onRefuse}
@@ -120,11 +105,13 @@ export const RequestCard = ({
               </>
             )}
 
-            {/* USER ACTION */}
-            {!isAdmin && onDonate && (
+            {/* =====================
+                USER ACTION
+            ===================== */}
+            {!isAdmin && onDonate && request.donation_status !== "satisfied" && (
               <Button
                 content="Donate"
-                handleClick={onDonate}
+                handleClick={() => onDonate(request)}
               />
             )}
           </Actions>

@@ -23,18 +23,43 @@ const generateToken = (user) => {
 // =========================
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, type } = req.body;
+    const { name, email, password, type, phone } = req.body;
 
-    const existing = await db.User.findOne({ where: { email } });
+    // =========================
+    // BASIC VALIDATION
+    // =========================
+    if (!name || !email || !password || !type) {
+      return res.status(400).json({ msg: "Missing required fields" });
+    }
+
+    if (!["person", "organization"].includes(type)) {
+      return res.status(400).json({ msg: "Invalid user type" });
+    }
+
+    if (phone && !/^[0-9+\-\s()]{6,20}$/.test(phone)) {
+      return res.status(400).json({ msg: "Invalid phone number" });
+    }
+
+    // =========================
+    // CHECK EMAIL
+    // =========================
+    const existing = await db.User.findOne({
+      where: { email: email.toLowerCase() }
+    });
+
     if (existing) {
       return res.status(400).json({ msg: "Email already exists" });
     }
 
-    const user = await db.User.create({
+    // =========================
+    // CREATE USER
+    // =========================
+    await db.User.create({
       name,
       email,
-      password, // hashed via model hook
+      password, // hashed via hook
       type,
+      phone: phone || null,
       status: "pending"
     });
 
@@ -44,7 +69,6 @@ exports.register = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
-
 // =========================
 // LOGIN
 // =========================

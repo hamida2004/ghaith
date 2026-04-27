@@ -26,8 +26,7 @@ const Badge = styled.span`
   padding: 4px 10px;
   border-radius: 10px;
   font-size: 13px;
-  color: white;
-  background-color: ${props => props.bg};
+  color: ${props => props.bg};
 `;
 
 const Details = styled.div`
@@ -49,10 +48,6 @@ const Button = styled.button`
   cursor: pointer;
   background: ${props => props.bg || colors.main};
   color: white;
-
-  &:hover {
-    opacity: 0.9;
-  }
 `;
 
 // =====================
@@ -74,13 +69,15 @@ export const UserCard = ({
   onActivate,
   onReject,
   onApproveDoc,
-  onRejectDoc
+  onRejectDoc,
+  onViewDoc
 }) => {
   const [open, setOpen] = useState(false);
 
+  const doc = user.Documents?.[0];
+
   return (
     <Card>
-      {/* HEADER */}
       <Header onClick={() => setOpen(!open)}>
         <div>
           <Title>{user.name}</Title>
@@ -92,56 +89,55 @@ export const UserCard = ({
         </Badge>
       </Header>
 
-      {/* DETAILS */}
       {open && (
         <Details>
           <p><strong>Type:</strong> {user.type}</p>
           <p><strong>Status:</strong> {user.status}</p>
-          <p><strong>Documents:</strong> {user.Documents?.length || 0}</p>
 
-          {/* =====================
-              DOCUMENTS
-          ===================== */}
-          {user.Documents?.map(doc => (
-            <div key={doc.id}>
-              <p>Doc status: {doc.status}</p>
+          <p><strong>Document:</strong> {doc ? doc.status : "None"}</p>
 
-              {doc.status === "pending" && (
-                <>
-                  <Button onClick={() => onApproveDoc(doc.id)}>
-                    Approve
-                  </Button>
-
-                  <Button
-                    bg={colors.red}
-                    onClick={() => onRejectDoc(doc.id)}
-                  >
-                    Reject
-                  </Button>
-                </>
-              )}
-            </div>
-          ))}
-
-          {/* =====================
-              USER ACTIONS
-          ===================== */}
           <Actions>
-            <Button onClick={onToggleAdmin}>
-              {user.is_admin ? "Remove Admin" : "Make Admin"}
-            </Button>
 
+            {/* VIEW */}
+            {doc && (
+              <Button onClick={() => onViewDoc(doc.file_path)}>
+                View Document
+              </Button>
+            )}
+
+            {/* APPROVE */}
+            {doc && doc.status === "pending" && (
+              <Button bg={colors.green} onClick={() => onApproveDoc(doc.id)}>
+                Approve
+              </Button>
+            )}
+
+            {/* REJECT */}
+            {doc && doc.status === "pending" && (
+              <Button bg={colors.red} onClick={() => onRejectDoc(doc.id)}>
+                Reject
+              </Button>
+            )}
+
+            {/* ACTIVATE */}
             {user.status !== "active" && (
               <Button bg={colors.green} onClick={onActivate}>
                 Activate
               </Button>
             )}
 
+            {/* REJECT USER */}
             {user.status !== "rejected" && (
               <Button bg={colors.red} onClick={onReject}>
-                Reject
+                Reject User
               </Button>
             )}
+
+            {/* ADMIN */}
+            <Button onClick={onToggleAdmin}>
+              {user.is_admin ? "Remove Admin" : "Make Admin"}
+            </Button>
+
           </Actions>
         </Details>
       )}

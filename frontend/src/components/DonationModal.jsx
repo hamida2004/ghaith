@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { colors } from "../style/style";
+import axios from "../api/axios";
+import { Button } from "./Button";
 
 // =====================
 // STYLES
@@ -70,78 +72,68 @@ const Actions = styled.div`
   margin-top: 10px;
 `;
 
-const Button = styled.button`
-  flex: 1;
-  padding: 12px;
-  border-radius: 25px;
-  border: none;
-  cursor: pointer;
-  font-weight: 600;
-  transition: 0.2s;
+// const Button = styled.button`
+//   flex: 1;
+//   padding: 12px;
+//   border-radius: 25px;
+//   border: none;
+//   cursor: pointer;
+//   font-weight: 600;
+//   transition: 0.2s;
 
-  background: ${(props) =>
-    props.variant === "secondary" ? "#eee" : colors.main};
+//   background: ${(props) =>
+//     props.variant === "secondary" ? "#eee" : colors.main};
 
-  color: ${(props) =>
-    props.variant === "secondary" ? "#333" : "white"};
+//   color: ${(props) =>
+//     props.variant === "secondary" ? "#333" : "white"};
 
-  &:hover {
-    opacity: 0.9;
-  }
+//   &:hover {
+//     opacity: 0.9;
+//   }
 
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-`;
+//   &:disabled {
+//     opacity: 0.5;
+//     cursor: not-allowed;
+//   }
+// `;
 
 // =====================
 // COMPONENT
 // =====================
-export const DonationModal = ({ request, onClose }) => {
+// DonationModal.jsx
+
+export const DonationModal = ({ request, onClose, onSuccess }) => {
   const [amount, setAmount] = useState("");
 
-  const remaining = request.target_amount - request.collected_amount;
+  const handleDonate = async () => {
+    try {
+      await axios.post("/donations", {
+        request_id: request.id,
+        amount: parseFloat(amount)
+      });
 
-  const handleDonate = () => {
-    if (!amount || amount <= 0) return;
+      onSuccess(request.id, parseFloat(amount)); // 🔥 update parent
+      onClose();
 
-    alert(`Donated ${amount}`);
-    onClose();
+    } catch (err) {
+      console.error(err);
+      alert("Donation failed");
+    }
   };
 
   return (
-    <Overlay onClick={onClose}>
-      <Modal onClick={(e) => e.stopPropagation()}>
-        
-        <Title>{request.title}</Title>
-        <Description>{request.description}</Description>
+    <div>
+      <h3>Donate to: {request.title}</h3>
 
-        <InfoBox>
-          Remaining: {remaining} DA
-        </InfoBox>
+      <input
+        type="number"
+        placeholder="Amount"
+        value={amount}
+        onChange={(e) => setAmount(e.target.value)}
+      />
 
-        <Input
-          type="number"
-          placeholder="Enter donation amount"
-          value={amount}
-          onChange={(e) => setAmount(e.target.value)}
-        />
-
-        <Actions>
-          <Button
-            onClick={handleDonate}
-            disabled={!amount || amount <= 0}
-          >
-            Confirm
-          </Button>
-
-          <Button variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-        </Actions>
-
-      </Modal>
-    </Overlay>
+      <Button handleClick={handleDonate} content="Confirm Donation" />
+      <Button handleClick={onClose} content="Cancel" />
+    </div>
   );
 };

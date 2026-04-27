@@ -31,6 +31,14 @@ const User = sequelize.define("User", {
     allowNull: false
   },
 
+  phone: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    validate: {
+      is: /^[0-9+\-\s()]{6,20}$/
+    }
+  },
+
   type: {
     type: DataTypes.ENUM("person", "organization"),
     allowNull: false

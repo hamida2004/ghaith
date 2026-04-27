@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import styled from "styled-components";
 import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
@@ -28,6 +28,7 @@ const Form = styled.div`
   grid-template-columns: 1fr 1fr;
   gap: 20px;
   width: 600px;
+  margin-bottom: 40px;
 `;
 
 const Field = styled.div`
@@ -55,26 +56,66 @@ const Msg = styled.p`
 // =====================
 export const Profile = () => {
   const [user, setUser] = useState(null);
-  const [file, setFile] = useState(null);
 
+  const [form, setForm] = useState({
+    name: "",
+    email: ""
+  });
+
+  const [file, setFile] = useState(null);
   const [msg, setMsg] = useState("");
   const [error, setError] = useState(false);
 
+  // =====================
+  // FETCH USER
+  // =====================
   useEffect(() => {
-    axios.get("/users/me").then(res => setUser(res.data));
+    const fetchUser = async () => {
+      const res = await axios.get("/users/me");
+      setUser(res.data);
+
+      setForm({
+        name: res.data.name || "",
+        email: res.data.email || ""
+      });
+    };
+
+    fetchUser();
   }, []);
 
+  // =====================
+  // INPUT HANDLER (STABLE)
+  // =====================
+  const handleChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setForm((prev) => ({
+      ...prev,
+      [name]: value
+    }));
+  }, []);
+
+  // =====================
+  // SAVE
+  // =====================
   const handleSave = async () => {
     try {
-      await axios.patch("/users/me", user);
+      await axios.put("/users/me", form);
       setMsg("Profile updated");
       setError(false);
+
+      // only update if needed
+      setUser((prev) =>
+        prev ? { ...prev, ...form } : prev
+      );
     } catch {
       setMsg("Update failed");
       setError(true);
     }
   };
 
+  // =====================
+  // UPLOAD
+  // =====================
   const handleUpload = async () => {
     if (!file) {
       setMsg("Select file");
@@ -90,13 +131,10 @@ export const Profile = () => {
         user.type === "organization" ? "org_doc" : "id_card"
       );
 
-      await axios.post("/users/upload", data, {
-        headers: { "Content-Type": "multipart/form-data" }
-      });
+      await axios.post("/users/upload", data);
 
       setMsg("Uploaded. Waiting for approval.");
       setError(false);
-
     } catch {
       setMsg("Upload failed");
       setError(true);
@@ -113,15 +151,24 @@ export const Profile = () => {
         <h2>{user.name}</h2>
         <p>{user.type}</p>
 
+        {/* FORM */}
         <Form>
           <Field>
             <Label>Name</Label>
-            <Input value={user.name || ""} onChange={e => setUser({ ...user, name: e.target.value })} />
+            <Input
+              name="name"
+              value={form.name}
+              onChange={handleChange}
+            />
           </Field>
 
           <Field>
             <Label>Email</Label>
-            <Input value={user.email || ""} onChange={e => setUser({ ...user, email: e.target.value })} />
+            <Input
+              name="email"
+              value={form.email}
+              onChange={handleChange}
+            />
           </Field>
         </Form>
 
@@ -132,9 +179,17 @@ export const Profile = () => {
           <div style={{ marginTop: 30 }}>
             <h3>Activate Account</h3>
 
-            <input type="file" onChange={e => setFile(e.target.files[0])} />
+            <div style={{ display: "flex", gap: 10 }}>
+              <input
+                type="file"
+                onChange={(e) => setFile(e.target.files[0])}
+              />
 
-            <Button handleClick={handleUpload} content="Upload Document" />
+              <Button
+                handleClick={handleUpload}
+                content="Upload Document"
+              />
+            </div>
           </div>
         )}
 

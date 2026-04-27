@@ -4,9 +4,16 @@ import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
 import { colors } from "../style/style";
 import { EmptyState } from "../components/EmptyState";
+import { CreateRequestModal } from "../components/CreateRequestModal";
 
+// =====================
+// STYLES
+// =====================
 const Header = styled.div`
   margin-bottom: 25px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
 `;
 
 const Title = styled.h1`
@@ -39,58 +46,76 @@ const Loader = styled.p`
   text-align: center;
 `;
 
+// =====================
+// COMPONENT
+// =====================
 export const UserRequests = () => {
   const [requests, setRequests] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // =====================
-  // FETCH USER REQUESTS
-  // =====================
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        const res = await axios.get("/requests/me");
-        setRequests(res.data);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetch();
-  }, []);
+  const [openModal, setOpenModal] = useState(false);
 
   // =====================
-  // CONFIRM DONATION
+  // FETCH DATA
   // =====================
-  const confirmDonation = async (donationId) => {
+  const fetchData = async () => {
     try {
-      await axios.patch(`/donations/${donationId}/confirm`);
+      const [reqRes, catRes] = await Promise.all([
+        axios.get("/requests/me"),
+        axios.get("/categories")
+      ]);
 
-      // optimistic update
-      setRequests(prev =>
-        prev.map(r => ({
-          ...r,
-          Donations: r.Donations?.map(d =>
-            d.id === donationId
-              ? { ...d, confirmed: true }
-              : d
-          )
-        }))
-      );
+      setRequests(reqRes.data);
+      setCategories(catRes.data);
 
     } catch (err) {
       console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  // =====================
+  // CREATE REQUEST
+  // =====================
+  const createRequest = async (form) => {
+    try {
+      if (!form.title || !form.description || !form.category_id) {
+        return alert("Please fill all fields");
+      }
+
+      await axios.post("/requests", form);
+
+      setOpenModal(false);
+
+      // refresh data
+      const res = await axios.get("/requests/me");
+      setRequests(res.data);
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to create request");
     }
   };
 
   return (
     <PageContainer>
+
+      {/* HEADER */}
       <Header>
         <Title>My Requests</Title>
+
+        <Button onClick={() => setOpenModal(true)}>
+          + Add Request
+        </Button>
       </Header>
 
+      {/* LIST */}
       {loading ? (
         <Loader>Loading...</Loader>
       ) : requests.length > 0 ? (
@@ -98,29 +123,26 @@ export const UserRequests = () => {
           {requests.map(r => (
             <Card key={r.id}>
               <h3>{r.title}</h3>
-
-              {r.Donations?.length > 0 ? (
-                r.Donations.map(d => (
-                  <div key={d.id}>
-                    <p>Amount: {d.amount}</p>
-                    <p>Status: {d.confirmed ? "Confirmed" : "Pending"}</p>
-
-                    {!d.confirmed && (
-                      <Button onClick={() => confirmDonation(d.id)}>
-                        Confirm Donation
-                      </Button>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <p>No donations yet</p>
-              )}
+              <p>{r.description}</p>
+              <p><strong>Status:</strong> {r.status}</p>
+              <p><strong>Collected:</strong> {r.collected_amount}</p>
+              <p><strong>Target:</strong> {r.target_amount}</p>
             </Card>
           ))}
         </List>
       ) : (
         <EmptyState message="No requests available" />
       )}
+
+      {/* MODAL */}
+      {openModal && (
+        <CreateRequestModal
+          onClose={() => setOpenModal(false)}
+          onCreate={createRequest}
+          categories={categories}
+        />
+      )}
+
     </PageContainer>
   );
 };

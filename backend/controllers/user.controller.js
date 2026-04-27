@@ -79,9 +79,12 @@ exports.getMe = async (req, res) => {
 // =========================
 exports.updateMe = async (req, res) => {
   try {
-    await db.User.update(req.body, {
-      where: { id: req.user.id }
-    });
+    const { name, email, phone } = req.body;
+
+    await db.User.update(
+      { name, email, phone },
+      { where: { id: req.user.id } }
+    );
 
     res.json({ msg: "Profile updated" });
 
