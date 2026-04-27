@@ -35,10 +35,10 @@ const StyledButton = styled.button`
 // =====================
 // COMPONENT
 // =====================
-export const Button = ({ content, onClick, disabled = false, type = "button" }) => {
+export const Button = ({ content, handleClick, disabled = false, type = "button" }) => {
   return (
     <StyledButton
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled}
       type={type}
     >

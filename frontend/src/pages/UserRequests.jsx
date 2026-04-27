@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
+import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
 import { colors } from "../style/style";
 import { EmptyState } from "../components/EmptyState";
@@ -34,62 +35,54 @@ const Button = styled.button`
   cursor: pointer;
 `;
 
+const Loader = styled.p`
+  text-align: center;
+`;
+
 export const UserRequests = () => {
-  
-  
-  const mockUserRequests = [
-  {
-    id: 1,
-    title: "Heart Surgery Assistance",
-    donations: [
-      {
-        id: 1,
-        donor: "Ahmed Benali",
-        amount: 500,
-        confirmed: true
-      },
-      {
-        id: 2,
-        donor: "Yasmine D",
-        amount: 1000,
-        confirmed: false
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // =====================
+  // FETCH USER REQUESTS
+  // =====================
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        const res = await axios.get("/requests/me");
+        setRequests(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
       }
-    ]
-  },
-  {
-    id: 2,
-    title: "Clothes for Winter",
-    donations: [
-      {
-        id: 3,
-        donor: "Ahmed Benali",
-        amount: 200,
-        confirmed: false
-      }
-    ]
-  },
-  {
-    id: 3,
-    title: "Food Packages",
-    donations: []
-  }
-];
-const [requests, setRequests] = useState(mockUserRequests);
-const confirmDonation = (reqId, donationId) => {
-  setRequests(prev =>
-    prev.map(r =>
-        r.id === reqId
-          ? {
-              ...r,
-              donations: r.donations.map(d =>
-                d.id === donationId
-                  ? { ...d, confirmed: true }
-                  : d
-              )
-            }
-          : r
-      )
-    );
+    };
+
+    fetch();
+  }, []);
+
+  // =====================
+  // CONFIRM DONATION
+  // =====================
+  const confirmDonation = async (donationId) => {
+    try {
+      await axios.patch(`/donations/${donationId}/confirm`);
+
+      // optimistic update
+      setRequests(prev =>
+        prev.map(r => ({
+          ...r,
+          Donations: r.Donations?.map(d =>
+            d.id === donationId
+              ? { ...d, confirmed: true }
+              : d
+          )
+        }))
+      );
+
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -98,24 +91,30 @@ const confirmDonation = (reqId, donationId) => {
         <Title>My Requests</Title>
       </Header>
 
-      {requests.length > 0 ? (
+      {loading ? (
+        <Loader>Loading...</Loader>
+      ) : requests.length > 0 ? (
         <List>
           {requests.map(r => (
             <Card key={r.id}>
               <h3>{r.title}</h3>
 
-              {r.donations.map(d => (
-                <div key={d.id}>
-                  <p>Amount: {d.amount}</p>
-                  <p>Status: {d.confirmed ? "Confirmed" : "Pending"}</p>
+              {r.Donations?.length > 0 ? (
+                r.Donations.map(d => (
+                  <div key={d.id}>
+                    <p>Amount: {d.amount}</p>
+                    <p>Status: {d.confirmed ? "Confirmed" : "Pending"}</p>
 
-                  {!d.confirmed && (
-                    <Button onClick={() => confirmDonation(r.id, d.id)}>
-                      Confirm Donation
-                    </Button>
-                  )}
-                </div>
-              ))}
+                    {!d.confirmed && (
+                      <Button onClick={() => confirmDonation(d.id)}>
+                        Confirm Donation
+                      </Button>
+                    )}
+                  </div>
+                ))
+              ) : (
+                <p>No donations yet</p>
+              )}
             </Card>
           ))}
         </List>

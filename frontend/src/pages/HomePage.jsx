@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../style/style";
@@ -7,6 +7,8 @@ import { DonationModal } from "../components/DonationModal";
 import { PageContainer } from "../components/PageContainer";
 import { Button } from "../components/Button";
 import noData from "../assets/images/noData.svg";
+import axios from "../api/axios";
+import ai from "../api/ai";
 
 // =====================
 // STYLES
@@ -58,7 +60,17 @@ const ResetBtn = styled.button`
   cursor: pointer;
 `;
 
-// EMPTY STATE
+const Banner = styled.div`
+  background: #fff3cd;
+  color: #856404;
+  padding: 12px 16px;
+  border-radius: 10px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
 const EmptyContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -78,59 +90,71 @@ const EmptyText = styled.h2`
 `;
 
 // =====================
-// MOCK DATA
-// =====================
-const mockRequests = [
-  {
-    id: 1,
-    title: "Medical Help",
-    category: "Health",
-    donation_status: "partially",
-    description: "Urgent surgery",
-    target_amount: 5000,
-    collected_amount: 2000,
-    date: "2024-04-10",
-    user: { id: 2, name: "Ahmed" }
-  },
-  {
-    id: 2,
-    title: "Food Support",
-    category: "Food",
-    donation_status: "not_satisfied",
-    description: "Family in need",
-    target_amount: 800,
-    collected_amount: 100,
-    date: "2024-04-15",
-    user: { id: 3, name: "Sara" }
-  }
-];
-
-// =====================
 // COMPONENT
 // =====================
 export const HomePage = () => {
   const navigate = useNavigate();
 
+  const [requests, setRequests] = useState([]);
+  const [recommended, setRecommended] = useState([]);
+  const [user, setUser] = useState(null);
+
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("all");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState("desc");
+
   const [selectedRequest, setSelectedRequest] = useState(null);
 
   // =====================
-  // DYNAMIC CATEGORIES
+  // FETCH DATA
   // =====================
-  const categories = [
-    "all",
-    ...new Set(mockRequests.map(r => r.category))
-  ];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const userId = 1;
+
+        const [reqRes, aiRes, userRes] = await Promise.all([
+          axios.get("/requests"),
+          ai.get(`/recommend/${userId}`),
+          axios.get("/users/me")
+        ]);
+
+        setUser(userRes.data);
+
+        const filteredRequests = reqRes.data.filter(
+          r => r.donation_status !== "satisfied"
+        );
+
+        setRequests(filteredRequests);
+        setRecommended(aiRes.data.recommendations || []);
+
+      } catch (err) {
+        console.error(err);
+      }
+    };
+
+    fetchData();
+  }, []);
 
   // =====================
-  // FILTER
+  // MERGE
   // =====================
-  const filtered = mockRequests
+  const merged = [
+    ...recommended,
+    ...requests.filter(
+      r => !recommended.find(rec => rec.id === r.id)
+    )
+  ];
+
+  const categories = [
+    "all",
+    ...new Set(merged.map(r => r.category))
+  ];
+
+  const filtered = merged
     .filter(r =>
-      r.title.toLowerCase().includes(search.trim().toLowerCase())
+      r.title.toLowerCase().includes(search.toLowerCase())
     )
     .filter(r => category === "all" || r.category === category)
     .filter(r =>
@@ -142,9 +166,6 @@ export const HomePage = () => {
         : new Date(a.date) - new Date(b.date)
     );
 
-  // =====================
-  // RESET
-  // =====================
   const resetFilters = () => {
     setSearch("");
     setCategory("all");
@@ -155,12 +176,26 @@ export const HomePage = () => {
   return (
     <PageContainer>
 
+      {/* STATUS BANNER */}
+      {user && user.status !== "active" && (
+        <Banner>
+          <span>
+            Your account is <strong>{user.status}</strong>. Upload your document to activate it.
+          </span>
+
+          <Button
+            handleClick={() => navigate("/profile/1")}
+            content="Activate"
+          />
+        </Banner>
+      )}
+
       {/* HEADER */}
       <Header>
         <Title>Available Requests</Title>
 
         <Button
-          onClick={() => navigate("/requests/1")}
+          handleClick={() => navigate("/requests/1")}
           content="My Requests"
         />
       </Header>
@@ -168,15 +203,12 @@ export const HomePage = () => {
       {/* FILTERS */}
       <Controls>
         <Input
-          placeholder="Search requests..."
+          placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <Select
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-        >
+        <Select value={category} onChange={(e) => setCategory(e.target.value)}>
           {categories.map(c => (
             <option key={c} value={c}>
               {c === "all" ? "All Categories" : c}
@@ -184,29 +216,21 @@ export const HomePage = () => {
           ))}
         </Select>
 
-        <Select
-          value={status}
-          onChange={(e) => setStatus(e.target.value)}
-        >
-          <option value="all">All Status</option>
+        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+          <option value="all">All</option>
           <option value="partially">Partially</option>
           <option value="not_satisfied">Not Satisfied</option>
         </Select>
 
-        <Select
-          value={sort}
-          onChange={(e) => setSort(e.target.value)}
-        >
+        <Select value={sort} onChange={(e) => setSort(e.target.value)}>
           <option value="desc">Newest</option>
           <option value="asc">Oldest</option>
         </Select>
 
-        <ResetBtn onClick={resetFilters}>
-          Reset
-        </ResetBtn>
+        <ResetBtn onClick={resetFilters}>Reset</ResetBtn>
       </Controls>
 
-      {/* LIST OR EMPTY */}
+      {/* LIST */}
       {filtered.length > 0 ? (
         <List>
           {filtered.map(r => (
@@ -219,7 +243,7 @@ export const HomePage = () => {
         </List>
       ) : (
         <EmptyContainer>
-          <EmptyImage src={noData} alt="no data" />
+          <EmptyImage src={noData} />
           <EmptyText>No requests available</EmptyText>
         </EmptyContainer>
       )}
@@ -231,7 +255,6 @@ export const HomePage = () => {
           onClose={() => setSelectedRequest(null)}
         />
       )}
-
     </PageContainer>
   );
 };

@@ -7,9 +7,6 @@ import { Button } from "../components/Button";
 import { colors } from "../style/style";
 import image from "../assets/images/login.svg";
 
-// =====================
-// STYLES
-// =====================
 const Image = styled.img`
   width: 60%;
   min-width: 220px;
@@ -45,11 +42,8 @@ const Success = styled.p`
   text-align: center;
 `;
 
-// =====================
-// COMPONENT
-// =====================
 export const ResetPwd = () => {
-  const [step, setStep] = useState(1); // 1 = send code, 2 = reset
+  const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
   const [form, setForm] = useState({
@@ -61,13 +55,21 @@ export const ResetPwd = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // =====================
-  // SEND CODE
-  // =====================
+  const validateStep2 = () => {
+    if (!/^\d{6}$/.test(form.code)) {
+      return "Code must be 6 digits";
+    }
+    if (form.password.length < 6) {
+      return "Password must be at least 6 characters";
+    }
+    return null;
+  };
+
   const handleSendCode = async () => {
     try {
       setLoading(true);
       setError("");
+      setSuccess("");
 
       await axios.post("/auth/request-reset", {
         email: form.email
@@ -83,13 +85,17 @@ export const ResetPwd = () => {
     }
   };
 
-  // =====================
-  // RESET PASSWORD
-  // =====================
   const handleReset = async () => {
+    const validationError = validateStep2();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
+
     try {
       setLoading(true);
       setError("");
+      setSuccess("");
 
       await axios.post("/auth/reset-password", {
         email: form.email,
@@ -108,13 +114,10 @@ export const ResetPwd = () => {
 
   return (
     <div style={{ display: "flex", height: "100vh" }}>
-      
-      {/* LEFT */}
       <Half direction="left" bgc={colors.main}>
         <Image src={image} alt="reset" />
       </Half>
 
-      {/* RIGHT */}
       <Half direction="right">
         <FormContainer>
 
@@ -126,7 +129,6 @@ export const ResetPwd = () => {
               : "Enter the code and your new password"}
           </Subtitle>
 
-          {/* EMAIL */}
           <Input
             label="Email"
             value={form.email}
@@ -135,7 +137,6 @@ export const ResetPwd = () => {
             }
           />
 
-          {/* STEP 2 ONLY */}
           {step === 2 && (
             <>
               <Input
@@ -157,13 +158,11 @@ export const ResetPwd = () => {
             </>
           )}
 
-          {/* FEEDBACK */}
           {error && <Error>{error}</Error>}
           {success && <Success>{success}</Success>}
 
-          {/* BUTTON */}
           <Button
-            content={step === 1 ? "Send Code" : "Reset Password"}
+            content={loading ? "Processing..." : step === 1 ? "Send Code" : "Reset Password"}
             handleClick={step === 1 ? handleSendCode : handleReset}
             disabled={
               loading ||
@@ -174,7 +173,6 @@ export const ResetPwd = () => {
 
         </FormContainer>
       </Half>
-
     </div>
   );
 };

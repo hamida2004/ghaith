@@ -1,12 +1,16 @@
 import axios from "axios";
 
 const instance = axios.create({
-  baseURL: "http://localhost:5000/api"
+  baseURL: "https://ghaith-backend.onrender.com"
 });
 
 instance.interceptors.request.use((config) => {
   const token = localStorage.getItem("token");
-  if (token) config.headers.Authorization = token;
+
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`; // ✅ important fix
+  }
+
   return config;
 });
 

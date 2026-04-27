@@ -9,6 +9,7 @@ const Container = styled.div`
   justify-content: center;
   width: 50%;
   height: 100vh;
+  flex-direction:column;
   position: absolute;
   top: 0;
   ${({ direction }) => `${direction}: 0;`}

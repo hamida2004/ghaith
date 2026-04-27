@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
+import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
 import { RequestCard } from "../components/RequestCard";
 import { colors } from "../style/style";
@@ -58,59 +59,68 @@ const List = styled.div`
   gap: 15px;
 `;
 
+const Loader = styled.p`
+  text-align: center;
+`;
+
 // =====================
 // COMPONENT
 // =====================
 export const ManageRequests = () => {
+  const [requests, setRequests] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [donationFilter, setDonationFilter] = useState("all");
   const [sortOrder, setSortOrder] = useState("desc");
 
-const mockRequests = [
-  {
-    id: 1,
-    title: "Help for surgery",
-    description: "Urgent medical help needed",
-    category: "Health",
-    target_amount: 5000,
-    collected_amount: 3000,
-    donation_status: "partially",
-    status: "accepted",
-    type: "money",
-    date: "2024-04-01",
-    user: { name: "Ahmed" }
-  },
-  {
-    id: 2,
-    title: "School supplies",
-    description: "Books for children",
-    category: "Education",
-    target_amount: 1000,
-    collected_amount: 1000,
-    donation_status: "satisfied",
-    status: "accepted",
-    type: "things",
-    date: "2024-04-10",
-    user: { name: "Sara" }
-  },
-  {
-    id: 3,
-    title: "Food aid",
-    description: "Family in need",
-    category: "Food",
-    target_amount: 800,
-    collected_amount: 100,
-    donation_status: "not_satisfied",
-    status: "pending",
-    type: "money",
-    date: "2024-04-15",
-    user: { name: "Omar" }
-  }
-];
+  // =====================
+  // FETCH DATA
+  // =====================
+  useEffect(() => {
+    const fetchRequests = async () => {
+      try {
+        const res = await axios.get("/requests");
 
-  const filtered = mockRequests
-    .filter(r => r.title.toLowerCase().includes(search.toLowerCase()))
+        setRequests(res.data);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRequests();
+  }, []);
+
+  // =====================
+  // UPDATE STATUS (ADMIN)
+  // =====================
+  const updateStatus = async (id, status) => {
+    try {
+      await axios.patch(`/requests/${id}/status`, { status });
+
+      // optimistic update
+      setRequests(prev =>
+        prev.map(r =>
+          r.id === id ? { ...r, status } : r
+        )
+      );
+
+    } catch (err) {
+      console.error(err);
+      alert("Failed to update request");
+    }
+  };
+
+  // =====================
+  // FILTER
+  // =====================
+  const filtered = requests
+    .filter(r =>
+      r.title.toLowerCase().includes(search.toLowerCase())
+    )
     .filter(r => statusFilter === "all" || r.status === statusFilter)
     .filter(r => donationFilter === "all" || r.donation_status === donationFilter)
     .sort((a, b) =>
@@ -119,12 +129,23 @@ const mockRequests = [
         : new Date(a.date) - new Date(b.date)
     );
 
+  // =====================
+  // RESET
+  // =====================
+  const resetFilters = () => {
+    setSearch("");
+    setStatusFilter("all");
+    setDonationFilter("all");
+    setSortOrder("desc");
+  };
+
   return (
     <PageContainer>
       <Header>
         <Title>Manage Requests</Title>
       </Header>
 
+      {/* CONTROLS */}
       <Controls>
         <Input
           placeholder="Search requests..."
@@ -151,20 +172,23 @@ const mockRequests = [
           <option value="asc">Oldest</option>
         </Select>
 
-        <ResetBtn onClick={() => {
-          setSearch("");
-          setStatusFilter("all");
-          setDonationFilter("all");
-          setSortOrder("desc");
-        }}>
+        <ResetBtn onClick={resetFilters}>
           Reset
         </ResetBtn>
       </Controls>
 
-      {filtered.length > 0 ? (
+      {/* LIST */}
+      {loading ? (
+        <Loader>Loading...</Loader>
+      ) : filtered.length > 0 ? (
         <List>
           {filtered.map(r => (
-            <RequestCard key={r.id} request={r} />
+            <RequestCard
+              key={r.id}
+              request={r}
+              onAccept={() => updateStatus(r.id, "accepted")}
+              onRefuse={() => updateStatus(r.id, "refused")}
+            />
           ))}
         </List>
       ) : (

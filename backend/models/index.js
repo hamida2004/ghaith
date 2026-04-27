@@ -3,7 +3,7 @@ const Request = require("./request.model");
 const Donation = require("./donation.model");
 const Category = require("./category.model");
 const Document = require("./document.model");
-
+const sequelize = require("../config/db"); // ✅ correct instance
 // =====================
 // RELATIONS
 // =====================
@@ -33,5 +33,6 @@ module.exports = {
   Request,
   Donation,
   Category,
-  Document
+  Document,
+  sequelize
 };
