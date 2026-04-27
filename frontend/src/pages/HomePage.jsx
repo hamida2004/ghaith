@@ -121,12 +121,14 @@ export const HomePage = () => {
         ]);
 
         setUser(userRes.data);
+        console.log(user,"/////////////////////////")
+        console.log(reqRes.data,"/////////////////////////")
 
         const filteredRequests = reqRes.data.filter(
           r => r.donation_status !== "satisfied"
         );
 
-        setRequests(filteredRequests);
+        setRequests(filteredRequests || reqRes.data);
         setRecommended(aiRes.data.recommendations || []);
 
       } catch (err) {

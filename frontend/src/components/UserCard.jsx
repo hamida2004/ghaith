@@ -25,18 +25,21 @@ const Title = styled.h4`
 const Badge = styled.span`
   padding: 4px 10px;
   border-radius: 10px;
-  font-size: 16px;
-  color: ${colors.main};
+  font-size: 13px;
+  color: white;
+  background-color: ${props => props.bg};
 `;
 
 const Details = styled.div`
   margin-top: 10px;
+  font-size: 14px;
 `;
 
 const Actions = styled.div`
   display: flex;
   gap: 10px;
   margin-top: 10px;
+  flex-wrap: wrap;
 `;
 
 const Button = styled.button`
@@ -44,7 +47,7 @@ const Button = styled.button`
   border: none;
   border-radius: 6px;
   cursor: pointer;
-  background: ${colors.main};
+  background: ${props => props.bg || colors.main};
   color: white;
 
   &:hover {
@@ -53,35 +56,90 @@ const Button = styled.button`
 `;
 
 // =====================
+// HELPERS
+// =====================
+const getStatusColor = (status) => {
+  if (status === "active") return colors.green;
+  if (status === "pending") return colors.yellow;
+  if (status === "rejected") return colors.red;
+  return "#999";
+};
+
+// =====================
 // COMPONENT
 // =====================
-export const UserCard = ({ user, onPromote, onVerify }) => {
+export const UserCard = ({
+  user,
+  onToggleAdmin,
+  onActivate,
+  onReject,
+  onApproveDoc,
+  onRejectDoc
+}) => {
   const [open, setOpen] = useState(false);
 
   return (
     <Card>
+      {/* HEADER */}
       <Header onClick={() => setOpen(!open)}>
         <div>
           <Title>{user.name}</Title>
           <p>{user.email}</p>
         </div>
-        <Badge>{user.role}</Badge>
+
+        <Badge bg={getStatusColor(user.status)}>
+          {user.is_admin ? "Admin" : "User"}
+        </Badge>
       </Header>
 
+      {/* DETAILS */}
       {open && (
         <Details>
           <p><strong>Type:</strong> {user.type}</p>
           <p><strong>Status:</strong> {user.status}</p>
-          <p><strong>Documents:</strong> {user.documents.length}</p>
+          <p><strong>Documents:</strong> {user.Documents?.length || 0}</p>
 
+          {/* =====================
+              DOCUMENTS
+          ===================== */}
+          {user.Documents?.map(doc => (
+            <div key={doc.id}>
+              <p>Doc status: {doc.status}</p>
+
+              {doc.status === "pending" && (
+                <>
+                  <Button onClick={() => onApproveDoc(doc.id)}>
+                    Approve
+                  </Button>
+
+                  <Button
+                    bg={colors.red}
+                    onClick={() => onRejectDoc(doc.id)}
+                  >
+                    Reject
+                  </Button>
+                </>
+              )}
+            </div>
+          ))}
+
+          {/* =====================
+              USER ACTIONS
+          ===================== */}
           <Actions>
-            <Button onClick={() => onVerify(user)}>
-              Verify Docs
+            <Button onClick={onToggleAdmin}>
+              {user.is_admin ? "Remove Admin" : "Make Admin"}
             </Button>
 
-            {user.role !== "admin" && (
-              <Button onClick={() => onPromote(user)}>
-                Make Admin
+            {user.status !== "active" && (
+              <Button bg={colors.green} onClick={onActivate}>
+                Activate
+              </Button>
+            )}
+
+            {user.status !== "rejected" && (
+              <Button bg={colors.red} onClick={onReject}>
+                Reject
               </Button>
             )}
           </Actions>

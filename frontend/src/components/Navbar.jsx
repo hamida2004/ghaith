@@ -1,18 +1,11 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { colors } from "../style/style";
 import { FaHome, FaDonate, FaUser, FaBars, FaUsers } from "react-icons/fa";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { BiExit } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
 import { MdOutlineDashboard } from "react-icons/md";
-
-// =====================
-// MOCK ROLE (replace later with token)
-// =====================
-const mockUser = {
-  role: "admin" // change to "user" to test
-};
 
 // =====================
 // STYLES
@@ -51,7 +44,7 @@ const Menu = styled.div`
 const StyledLink = styled(NavLink)`
   display: flex;
   align-items: center;
-  justify-content: flex-start; /* LEFT ALIGN */
+  justify-content: flex-start;
   gap: 12px;
   padding: 12px 16px;
   text-decoration: none;
@@ -79,7 +72,34 @@ const Label = styled.span`
 // =====================
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
-  const isAdmin = mockUser.role === "admin";
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [user,setUser]=useState({})
+  const navigate = useNavigate();
+
+  // =====================
+  // GET ROLE FROM TOKEN
+  // =====================
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    if (!token) return;
+
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1]));
+      setIsAdmin(payload.is_admin);
+      setUser(payload)
+         } catch (err) {
+      console.error("Invalid token");
+    }
+  }, []);
+
+  // =====================
+  // LOGOUT
+  // =====================
+  const handleLogout = () => {
+    localStorage.removeItem("token");
+    navigate("/");
+  };
 
   return (
     <Nav open={open}>
@@ -92,9 +112,9 @@ export const Navbar = () => {
 
         <Menu>
           {/* =====================
-              ADMIN ROUTES
+              ADMIN NAV
           ===================== */}
-          {isAdmin && (
+          {isAdmin ? (
             <>
               <StyledLink to="/" end>
                 <FaHome />
@@ -116,24 +136,22 @@ export const Navbar = () => {
                 <Label open={open}>Manage Users</Label>
               </StyledLink>
             </>
-          )}
-
-          {/* =====================
-              USER ROUTES
-          ===================== */}
-          {!isAdmin && (
+          ) : (
             <>
+              {/* =====================
+                  USER NAV
+              ===================== */}
               <StyledLink to="/" end>
                 <FaHome />
                 <Label open={open}>Home</Label>
               </StyledLink>
 
-              <StyledLink to="/requests/1">
+              <StyledLink to={`/requests/${user.id}`}>
                 <FaDonate />
                 <Label open={open}>My Requests</Label>
               </StyledLink>
 
-              <StyledLink to="/profile/1">
+              <StyledLink to={`/profile/${user.id}`}>
                 <FaUser />
                 <Label open={open}>Profile</Label>
               </StyledLink>
@@ -144,7 +162,7 @@ export const Navbar = () => {
 
       {/* LOGOUT */}
       <div style={{ marginBottom: 20 }}>
-        <StyledLink to="/logout" style={{ color: colors.red }}>
+        <StyledLink as="div" onClick={handleLogout} style={{ color: colors.red, cursor: "pointer" }}>
           <BiExit />
           <Label open={open}>Logout</Label>
         </StyledLink>

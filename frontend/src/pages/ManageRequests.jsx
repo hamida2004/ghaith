@@ -63,12 +63,18 @@ const Loader = styled.p`
   text-align: center;
 `;
 
+const Error = styled.p`
+  text-align: center;
+  color: red;
+`;
+
 // =====================
 // COMPONENT
 // =====================
 export const ManageRequests = () => {
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -81,11 +87,18 @@ export const ManageRequests = () => {
   useEffect(() => {
     const fetchRequests = async () => {
       try {
+        setError("");
+
         const res = await axios.get("/requests");
 
-        setRequests(res.data);
+        // handle both normal + Sequelize raw formats
+        const cleanData = res.data.map(r => r.dataValues || r);
+
+        setRequests(cleanData);
+
       } catch (err) {
         console.error(err);
+        setError("Failed to load requests");
       } finally {
         setLoading(false);
       }
@@ -101,7 +114,7 @@ export const ManageRequests = () => {
     try {
       await axios.patch(`/requests/${id}/status`, { status });
 
-      // optimistic update
+      // optimistic UI update
       setRequests(prev =>
         prev.map(r =>
           r.id === id ? { ...r, status } : r
@@ -115,22 +128,22 @@ export const ManageRequests = () => {
   };
 
   // =====================
-  // FILTER
+  // FILTER + SORT
   // =====================
   const filtered = requests
     .filter(r =>
-      r.title.toLowerCase().includes(search.toLowerCase())
+      (r.title || "").toLowerCase().includes(search.toLowerCase())
     )
     .filter(r => statusFilter === "all" || r.status === statusFilter)
     .filter(r => donationFilter === "all" || r.donation_status === donationFilter)
     .sort((a, b) =>
       sortOrder === "desc"
-        ? new Date(b.date) - new Date(a.date)
-        : new Date(a.date) - new Date(b.date)
+        ? new Date(b.createdAt) - new Date(a.createdAt)
+        : new Date(a.createdAt) - new Date(b.createdAt)
     );
 
   // =====================
-  // RESET
+  // RESET FILTERS
   // =====================
   const resetFilters = () => {
     setSearch("");
@@ -139,6 +152,9 @@ export const ManageRequests = () => {
     setSortOrder("desc");
   };
 
+  // =====================
+  // UI
+  // =====================
   return (
     <PageContainer>
       <Header>
@@ -153,21 +169,30 @@ export const ManageRequests = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+        <Select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+        >
           <option value="all">All Status</option>
           <option value="pending">Pending</option>
           <option value="accepted">Accepted</option>
           <option value="refused">Refused</option>
         </Select>
 
-        <Select value={donationFilter} onChange={(e) => setDonationFilter(e.target.value)}>
+        <Select
+          value={donationFilter}
+          onChange={(e) => setDonationFilter(e.target.value)}
+        >
           <option value="all">All Donation</option>
           <option value="satisfied">Satisfied</option>
           <option value="partially">Partially</option>
           <option value="not_satisfied">Not Satisfied</option>
         </Select>
 
-        <Select value={sortOrder} onChange={(e) => setSortOrder(e.target.value)}>
+        <Select
+          value={sortOrder}
+          onChange={(e) => setSortOrder(e.target.value)}
+        >
           <option value="desc">Newest</option>
           <option value="asc">Oldest</option>
         </Select>
@@ -177,9 +202,11 @@ export const ManageRequests = () => {
         </ResetBtn>
       </Controls>
 
-      {/* LIST */}
+      {/* CONTENT */}
       {loading ? (
         <Loader>Loading...</Loader>
+      ) : error ? (
+        <Error>{error}</Error>
       ) : filtered.length > 0 ? (
         <List>
           {filtered.map(r => (

@@ -71,7 +71,11 @@ export const ManageUsers = () => {
     const fetchUsers = async () => {
       try {
         const res = await axios.get("/users");
-        setUsers(res.data);
+
+        // normalize Sequelize response
+        const clean = res.data.map(u => u.dataValues || u);
+
+        setUsers(clean);
       } catch (err) {
         console.error(err);
       } finally {
@@ -85,7 +89,6 @@ export const ManageUsers = () => {
   // =====================
   // ACTIONS
   // =====================
-
   const updateStatus = async (id, status) => {
     try {
       await axios.patch(`/users/${id}/status`, { status });
@@ -116,12 +119,11 @@ export const ManageUsers = () => {
 
   const updateDocument = async (docId, status, reason = null) => {
     try {
-      await axios.patch(`/users/documents/${docId}`, {
+      await axios.patch(`/users/document/${docId}`, {
         status,
-        rejection_reason: reason
+        reason
       });
 
-      // refresh UI
       setUsers(prev =>
         prev.map(u => ({
           ...u,
@@ -132,7 +134,6 @@ export const ManageUsers = () => {
           )
         }))
       );
-
     } catch (err) {
       console.error(err);
     }
@@ -143,14 +144,12 @@ export const ManageUsers = () => {
   // =====================
   const filtered = users
     .filter(u =>
-      u.name.toLowerCase().includes(search.toLowerCase())
+      (u.name || "").toLowerCase().includes(search.toLowerCase())
     )
     .filter(u => {
       if (roleFilter === "all") return true;
-
       if (roleFilter === "admin") return u.is_admin;
-
-      return !u.is_admin && u.role === roleFilter;
+      return !u.is_admin;
     })
     .filter(u => typeFilter === "all" || u.type === typeFilter);
 
@@ -170,20 +169,13 @@ export const ManageUsers = () => {
           onChange={(e) => setSearch(e.target.value)}
         />
 
-        <Select
-          value={roleFilter}
-          onChange={(e) => setRoleFilter(e.target.value)}
-        >
+        <Select value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
           <option value="all">All Roles</option>
           <option value="admin">Admin</option>
-          <option value="donator">Donator</option>
-          <option value="donation_seeker">Donation Seeker</option>
+          <option value="user">User</option>
         </Select>
 
-        <Select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-        >
+        <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="all">All Types</option>
           <option value="person">Person</option>
           <option value="organization">Organization</option>
@@ -196,25 +188,18 @@ export const ManageUsers = () => {
         <List>
           {filtered.map(u => (
             <UserCard
-              key={u.id}
-              user={u}
-
-              // ADMIN ACTIONS
-              onActivate={() => updateStatus(u.id, "active")}
-              onReject={() => updateStatus(u.id, "rejected")}
-              onToggleAdmin={() => toggleAdmin(u.id)}
-
-              onApproveDoc={(docId) =>
-                updateDocument(docId, "approved")
-              }
-
-              onRejectDoc={(docId) => {
-                const reason = prompt("Rejection reason:");
-                if (!reason) return;
-
-                updateDocument(docId, "rejected", reason);
-              }}
-            />
+  key={u.id}
+  user={u}
+  onToggleAdmin={() => toggleAdmin(u.id)}
+  onActivate={() => updateStatus(u.id, "active")}
+  onReject={() => updateStatus(u.id, "rejected")}
+  onApproveDoc={(docId) => updateDocument(docId, "approved")}
+  onRejectDoc={(docId) => {
+    const reason = prompt("Rejection reason:");
+    if (!reason) return;
+    updateDocument(docId, "rejected", reason);
+  }}
+/>
           ))}
         </List>
       ) : (
