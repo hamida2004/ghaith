@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import styled from "styled-components";
 import { useNavigate } from "react-router-dom";
 import { colors } from "../style/style";
-import { RequestCard } from "../components/RequestCard";
+import { RequestCard } from "../components/DonationCard";
 import { DonationModal } from "../components/DonationModal";
 import { PageContainer } from "../components/PageContainer";
 import { Button } from "../components/Button";
@@ -36,7 +36,6 @@ const Input = styled.input`
   border-radius: 8px;
   border: 1px solid #ddd;
   flex: 1;
-  min-width: 200px;
 `;
 
 const Select = styled.select`
@@ -109,102 +108,97 @@ export const HomePage = () => {
   // =====================
   // FETCH DATA
   // =====================
+  const fetchData = async () => {
+    try {
+      const userRes = await axios.get("/users/me");
+      const userData = userRes.data;
+      setUser(userData);
+
+      const userId = userData.id;
+
+      const [reqRes, aiRes, catRes] = await Promise.all([
+        axios.get("/requests"),
+        ai.get(`/recommend/${userId}`),
+        axios.get("/categories")
+      ]);
+
+      const allRequests = reqRes.data || [];
+      const aiRequests = aiRes.data.recommendations || [];
+
+      const normalizedCategories = (catRes.data || []).map(
+        (c) => c.dataValues || c
+      );
+      setCategories(normalizedCategories);
+
+      // =====================
+      // MAP REQUESTS
+      // =====================
+      const requestMap = {};
+      allRequests.forEach((r) => {
+        requestMap[r.id] = r;
+      });
+
+      const fullAI = aiRequests.map((r) =>
+        requestMap[r.id] ? requestMap[r.id] : r
+      );
+
+      // =====================
+      // 🔥 FILTER RULES
+      // =====================
+      const isValid = (r) =>
+        r.status === "accepted" &&
+        r.donation_status !== "satisfied" &&
+        Number(r.seeker_id) !== Number(userId);
+
+      const cleanRecommended = fullAI.filter(isValid);
+      const cleanRequests = allRequests.filter(isValid);
+
+      // =====================
+      // MERGE (recommended first)
+      // =====================
+      const merged = [
+        ...cleanRecommended,
+        ...cleanRequests.filter(
+          (r) => !cleanRecommended.some((rec) => rec.id === r.id)
+        )
+      ];
+
+      setRecommended(cleanRecommended);
+      setRequests(merged);
+
+    } catch (err) {
+      console.error("FETCH ERROR:", err);
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        // USER
-        const userRes = await axios.get("/users/me");
-        const userData = userRes.data;
-        setUser(userData);
-
-        const userId = userData.id;
-
-        // PARALLEL FETCH
-        const [reqRes, aiRes, catRes] = await Promise.all([
-          axios.get("/requests"),
-          ai.get(`/recommend/${userId}`),
-          axios.get("/categories")
-        ]);
-
-        setCategories(catRes.data);
-
-        const allRequests = reqRes.data;
-        const aiRequests = aiRes.data.recommendations || [];
-
-        // MAP FULL DATA
-        const requestMap = {};
-        allRequests.forEach(r => {
-          requestMap[r.id] = r;
-        });
-
-        const fullAI = aiRequests.map(r =>
-          requestMap[r.id] ? requestMap[r.id] : r
-        );
-
-        // MERGE
-        const merged = [
-          ...fullAI,
-          ...allRequests.filter(r =>
-            !fullAI.some(ai => ai.id === r.id)
-          )
-        ];
-
-        // FILTER OUT SATISFIED
-        const filtered = merged.filter(
-          r => r.donation_status !== "satisfied"
-        );
-
-        setRequests(filtered);
-        setRecommended(fullAI);
-
-      } catch (err) {
-        console.error("FETCH ERROR:", err);
-      }
-    };
-
     fetchData();
-  }, [selectedRequest]);
+  }, []);
 
   // =====================
-  // MERGE FOR DISPLAY
+  // FILTER UI
   // =====================
-  const merged = [
-    ...recommended,
-    ...requests.filter(r =>
-      !recommended.find(rec => rec.id === r.id)
-    )
-  ];
-
-  // =====================
-  // CATEGORY OPTIONS
-  // =====================
-  const categoryOptions = [
-    { id: "all", name: "All Categories" },
-    ...categories
-  ];
-
-  // =====================
-  // FILTER
-  // =====================
-  const filtered = merged
-    .filter(r =>
-      r.title.toLowerCase().includes(search.toLowerCase())
-    )
-    .filter(r =>
-      category === "all"
-        ? true
-        : r.Category?.id === Number(category)
-    )
-    .filter(r =>
-      status === "all"
-        ? true
-        : r.donation_status === status
-    )
-    .sort((a, b) =>
-      sort === "desc"
-        ? new Date(b.createdAt) - new Date(a.createdAt)
-        : new Date(a.createdAt) - new Date(b.createdAt)
-    );
+  const filtered = useMemo(() => {
+    return requests
+      .filter((r) =>
+        r.title.toLowerCase().includes(search.toLowerCase())
+      )
+      .filter((r) =>
+        category === "all"
+          ? true
+          : r.category_id === Number(category)
+      )
+      .filter((r) =>
+        status === "all"
+          ? true
+          : r.donation_status === status
+      )
+      .sort((a, b) =>
+        sort === "desc"
+          ? new Date(b.createdAt) - new Date(a.createdAt)
+          : new Date(a.createdAt) - new Date(b.createdAt)
+      );
+  }, [requests, search, category, status, sort]);
 
   const resetFilters = () => {
     setSearch("");
@@ -219,15 +213,15 @@ export const HomePage = () => {
   return (
     <PageContainer>
 
-      {/* STATUS */}
+      {/* ACCOUNT STATUS */}
       {user && user.status !== "active" && (
         <Banner>
           <span>
-            Your account is <strong>{user.status}</strong>. Upload your document to activate it.
+            Your account is <strong>{user.status}</strong>.
           </span>
 
           <Button
-            handleClick={() => navigate(`/profile/${user.id}`)}
+            handleClick={() => navigate(`/profile`)}
             content="Activate"
           />
         </Banner>
@@ -238,7 +232,7 @@ export const HomePage = () => {
         <Title>Available Requests</Title>
 
         <Button
-          handleClick={() => navigate(`/requests/${user?.id}`)}
+          handleClick={() => navigate(`/requests/me`)}
           content="My Requests"
         />
       </Header>
@@ -255,20 +249,27 @@ export const HomePage = () => {
           value={category}
           onChange={(e) => setCategory(e.target.value)}
         >
-          {categoryOptions.map(c => (
+          <option value="all">All Categories</option>
+          {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </Select>
 
-        <Select value={status} onChange={(e) => setStatus(e.target.value)}>
+        <Select
+          value={status}
+          onChange={(e) => setStatus(e.target.value)}
+        >
           <option value="all">All</option>
           <option value="partially">Partially</option>
           <option value="not_satisfied">Not Satisfied</option>
         </Select>
 
-        <Select value={sort} onChange={(e) => setSort(e.target.value)}>
+        <Select
+          value={sort}
+          onChange={(e) => setSort(e.target.value)}
+        >
           <option value="desc">Newest</option>
           <option value="asc">Oldest</option>
         </Select>
@@ -279,10 +280,12 @@ export const HomePage = () => {
       {/* LIST */}
       {filtered.length > 0 ? (
         <List>
-          {filtered.map(r => (
+          {filtered.map((r) => (
             <RequestCard
               key={r.id}
               request={r}
+              currentUser={user}
+              categories={categories}
               onDonate={(req) => setSelectedRequest(req)}
             />
           ))}
@@ -299,25 +302,9 @@ export const HomePage = () => {
         <DonationModal
           request={selectedRequest}
           onClose={() => setSelectedRequest(null)}
-          onSuccess={(requestId, amount) => {
-            setRequests(prev =>
-              prev.map(r => {
-                if (r.id !== requestId) return r;
-
-                const newAmount =
-                  parseFloat(r.collected_amount) + amount;
-
-                let status = "not_satisfied";
-                if (newAmount >= r.target_amount) status = "satisfied";
-                else if (newAmount > 0) status = "partially";
-
-                return {
-                  ...r,
-                  collected_amount: newAmount,
-                  donation_status: status
-                };
-              })
-            );
+          onSuccess={async () => {
+            setSelectedRequest(null);
+            await fetchData();
           }}
         />
       )}

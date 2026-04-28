@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import styled from "styled-components";
 import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
-import { RequestCard } from "../components/RequestCard";
 import { colors } from "../style/style";
 import { EmptyState } from "../components/EmptyState";
+import { RequestCard } from "../components/RequestCard";
 
 // =====================
 // STYLES
@@ -72,6 +72,7 @@ const Error = styled.p`
 // COMPONENT
 // =====================
 export const ManageRequests = () => {
+  const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -82,30 +83,37 @@ export const ManageRequests = () => {
   const [sortOrder, setSortOrder] = useState("desc");
 
   // =====================
-  // FETCH DATA
+  // FETCH USER + REQUESTS
   // =====================
+  const fetchData = async () => {
+    try {
+      setError("");
+      setLoading(true);
+
+      const [userRes, reqRes] = await Promise.all([
+        axios.get("/users/me"),
+        axios.get("/requests")
+      ]);
+
+      setUser(userRes.data);
+
+      // normalize Sequelize raw
+      const clean = (reqRes.data || []).map(r => r.dataValues || r);
+      setRequests(clean);
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load requests");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchRequests = async () => {
-      try {
-        setError("");
-
-        const res = await axios.get("/requests");
-
-        // handle both normal + Sequelize raw formats
-        const cleanData = res.data.map(r => r.dataValues || r);
-
-        setRequests(cleanData);
-
-      } catch (err) {
-        console.error(err);
-        setError("Failed to load requests");
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchRequests();
+    fetchData();
   }, []);
+
+  const isAdmin = !!user?.is_admin;
 
   // =====================
   // UPDATE STATUS (ADMIN)
@@ -114,12 +122,10 @@ export const ManageRequests = () => {
     try {
       await axios.patch(`/requests/${id}/status`, { status });
 
-      // optimistic UI update
-      setRequests(prev =>
-        prev.map(r =>
-          r.id === id ? { ...r, status } : r
-        )
-      );
+      // refresh from backend (source of truth)
+      const res = await axios.get("/requests");
+      const clean = (res.data || []).map(r => r.dataValues || r);
+      setRequests(clean);
 
     } catch (err) {
       console.error(err);
@@ -130,20 +136,22 @@ export const ManageRequests = () => {
   // =====================
   // FILTER + SORT
   // =====================
-  const filtered = requests
-    .filter(r =>
-      (r.title || "").toLowerCase().includes(search.toLowerCase())
-    )
-    .filter(r => statusFilter === "all" || r.status === statusFilter)
-    .filter(r => donationFilter === "all" || r.donation_status === donationFilter)
-    .sort((a, b) =>
-      sortOrder === "desc"
-        ? new Date(b.createdAt) - new Date(a.createdAt)
-        : new Date(a.createdAt) - new Date(b.createdAt)
-    );
+  const filtered = useMemo(() => {
+    return requests
+      .filter(r =>
+        (r.title || "").toLowerCase().includes(search.toLowerCase())
+      )
+      .filter(r => statusFilter === "all" || r.status === statusFilter)
+      .filter(r => donationFilter === "all" || r.donation_status === donationFilter)
+      .sort((a, b) =>
+        sortOrder === "desc"
+          ? new Date(b.createdAt) - new Date(a.createdAt)
+          : new Date(a.createdAt) - new Date(b.createdAt)
+      );
+  }, [requests, search, statusFilter, donationFilter, sortOrder]);
 
   // =====================
-  // RESET FILTERS
+  // RESET
   // =====================
   const resetFilters = () => {
     setSearch("");
@@ -209,10 +217,11 @@ export const ManageRequests = () => {
         <Error>{error}</Error>
       ) : filtered.length > 0 ? (
         <List>
-          {filtered.map(r => (
+          {filtered.map((r) => (
             <RequestCard
               key={r.id}
               request={r}
+              isAdmin={isAdmin}                 // 🔥 from user
               onAccept={() => updateStatus(r.id, "accepted")}
               onRefuse={() => updateStatus(r.id, "refused")}
             />

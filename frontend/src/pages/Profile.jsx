@@ -57,9 +57,11 @@ const Msg = styled.p`
 export const Profile = () => {
   const [user, setUser] = useState(null);
 
+  // ✅ include phone
   const [form, setForm] = useState({
     name: "",
-    email: ""
+    email: "",
+    phone: ""
   });
 
   const [file, setFile] = useState(null);
@@ -71,20 +73,25 @@ export const Profile = () => {
   // =====================
   useEffect(() => {
     const fetchUser = async () => {
-      const res = await axios.get("/users/me");
-      setUser(res.data);
+      try {
+        const res = await axios.get("/users/me");
+        setUser(res.data);
 
-      setForm({
-        name: res.data.name || "",
-        email: res.data.email || ""
-      });
+        setForm({
+          name: res.data.name || "",
+          email: res.data.email || "",
+          phone: res.data.phone || ""
+        });
+      } catch (err) {
+        console.error(err);
+      }
     };
 
     fetchUser();
   }, []);
 
   // =====================
-  // INPUT HANDLER (STABLE)
+  // INPUT HANDLER
   // =====================
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
@@ -95,26 +102,29 @@ export const Profile = () => {
   }, []);
 
   // =====================
-  // SAVE
+  // SAVE PROFILE
   // =====================
   const handleSave = async () => {
     try {
       await axios.put("/users/me", form);
+
       setMsg("Profile updated");
       setError(false);
 
-      // only update if needed
+      // optional sync
       setUser((prev) =>
         prev ? { ...prev, ...form } : prev
       );
-    } catch {
+
+    } catch (err) {
+      console.error(err);
       setMsg("Update failed");
       setError(true);
     }
   };
 
   // =====================
-  // UPLOAD
+  // UPLOAD DOCUMENT
   // =====================
   const handleUpload = async () => {
     if (!file) {
@@ -131,11 +141,17 @@ export const Profile = () => {
         user.type === "organization" ? "org_doc" : "id_card"
       );
 
-      await axios.post("/users/upload", data);
+      await axios.post("/users/upload", data, {
+        headers: {
+          "Content-Type": "multipart/form-data"
+        }
+      });
 
       setMsg("Uploaded. Waiting for approval.");
       setError(false);
-    } catch {
+
+    } catch (err) {
+      console.error(err);
       setMsg("Upload failed");
       setError(true);
     }
@@ -167,6 +183,16 @@ export const Profile = () => {
             <Input
               name="email"
               value={form.email}
+              onChange={handleChange}
+            />
+          </Field>
+
+          {/* ✅ NEW FIELD */}
+          <Field>
+            <Label>Phone</Label>
+            <Input
+              name="phone"
+              value={form.phone}
               onChange={handleChange}
             />
           </Field>

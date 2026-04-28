@@ -44,33 +44,116 @@ const Button = styled.button`
   width: 100%;
   padding: 10px;
   margin-top: 10px;
-  background: ${colors.main};
+  background: ${(p) => p.bg || colors.main};
   color: white;
   border: none;
   border-radius: 8px;
   cursor: pointer;
 `;
 
+const Error = styled.p`
+  color: red;
+  font-size: 13px;
+  margin-bottom: 10px;
+`;
+
 // =====================
 // COMPONENT
 // =====================
-export const CreateRequestModal = ({ onClose, onCreate, categories }) => {
+export const CreateRequestModal = ({ onClose, onCreate, categories = [] }) => {
   const [form, setForm] = useState({
     title: "",
     description: "",
     target_amount: "",
-    type: "money",
     category_id: ""
   });
 
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
   const handleChange = (field, value) => {
-    setForm(prev => ({ ...prev, [field]: value }));
+    setForm((prev) => ({ ...prev, [field]: value }));
   };
+
+  // =====================
+  // VALIDATION + SUBMIT
+  // =====================
+  // const handleSubmit = async () => {
+  //   setError("");
+
+  //   if (!form.title || !form.description || !form.category_id) {
+  //     return setError("Please fill all required fields");
+  //   }
+
+  //   const amount = Number(form.target_amount);
+
+  //   if (!amount || amount <= 0) {
+  //     return setError("Invalid target amount");
+  //   }
+
+  //   try {
+  //     setLoading(true);
+
+  //     await onCreate({
+  //       ...form,
+  //       category_id: Number(form.category_id),
+  //       target_amount: amount
+  //     });
+
+  //   } catch (err) {
+  //     console.error(err);
+  //     setError("Failed to create request");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
+
+  const handleSubmit = async () => {
+  setError("");
+
+  if (!form.title || !form.description || !form.category_id) {
+    return setError("Please fill all required fields");
+  }
+
+  const amount = Number(form.target_amount);
+  if (!amount || amount <= 0) {
+    return setError("Invalid target amount");
+  }
+
+  // 🔥 derive type from category
+  const selectedCategory = categories.find(
+    (c) => c.id === Number(form.category_id)
+  );
+
+  const type =
+    selectedCategory?.name?.toLowerCase() === "money"
+      ? "money"
+      : "things";
+
+  try {
+    setLoading(true);
+
+    await onCreate({
+      ...form,
+      category_id: Number(form.category_id),
+      target_amount: amount,
+      type // ✅ now always sent
+    });
+
+  } catch (err) {
+    console.error(err);
+    setError("Failed to create request");
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <Overlay>
       <Modal>
         <h3>Create Request</h3>
+
+        {error && <Error>{error}</Error>}
 
         <Input
           placeholder="Title"
@@ -92,34 +175,22 @@ export const CreateRequestModal = ({ onClose, onCreate, categories }) => {
         />
 
         <Select
-          value={form.type}
-          onChange={(e) => handleChange("type", e.target.value)}
-        >
-          <option value="money">Money</option>
-          <option value="things">Things</option>
-        </Select>
-
-        {/* ✅ categories from backend */}
-        <Select
           value={form.category_id}
           onChange={(e) => handleChange("category_id", e.target.value)}
         >
           <option value="">Select Category</option>
-          {categories.map(c => (
+          {categories.map((c) => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </Select>
 
-        <Button onClick={() => onCreate(form)}>
-          Create
+        <Button onClick={handleSubmit} disabled={loading}>
+          {loading ? "Creating..." : "Create"}
         </Button>
 
-        <Button
-          style={{ background: colors.red }}
-          onClick={onClose}
-        >
+        <Button bg={colors.red} onClick={onClose}>
           Cancel
         </Button>
       </Modal>

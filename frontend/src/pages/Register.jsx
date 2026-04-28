@@ -86,7 +86,7 @@ export const Register = () => {
 
         <div style={{
           display:'flex', gap:8,
-          position:'absolute', bottom:40, right:40
+          position:'absolute', bottom:40, right:40,alignItems:'center'
         }}>
           <p>Already have an account?</p>
           <CustomLink content="Sign In" color={colors.white} to="/login" />

@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import styled from "styled-components";
 import { colors } from "../style/style";
-import { FaHome, FaDonate, FaUser, FaBars, FaUsers } from "react-icons/fa";
+import {
+  FaHome,
+  FaDonate,
+  FaUser,
+  FaBars,
+  FaUsers,
+  FaList
+} from "react-icons/fa";
 import { NavLink, useNavigate } from "react-router-dom";
 import { BiExit } from "react-icons/bi";
 import { IoClose } from "react-icons/io5";
@@ -73,7 +80,6 @@ const Label = styled.span`
 export const Navbar = () => {
   const [open, setOpen] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [user,setUser]=useState({})
   const navigate = useNavigate();
 
   // =====================
@@ -81,14 +87,12 @@ export const Navbar = () => {
   // =====================
   useEffect(() => {
     const token = localStorage.getItem("token");
-
     if (!token) return;
 
     try {
       const payload = JSON.parse(atob(token.split(".")[1]));
       setIsAdmin(payload.is_admin);
-      setUser(payload)
-         } catch (err) {
+    } catch {
       console.error("Invalid token");
     }
   }, []);
@@ -111,6 +115,7 @@ export const Navbar = () => {
         </Toggle>
 
         <Menu>
+
           {/* =====================
               ADMIN NAV
           ===================== */}
@@ -135,6 +140,12 @@ export const Navbar = () => {
                 <FaUsers />
                 <Label open={open}>Manage Users</Label>
               </StyledLink>
+
+              {/* ✅ NEW: CATEGORIES */}
+              <StyledLink to="/categories">
+                <FaList />
+                <Label open={open}>Categories</Label>
+              </StyledLink>
             </>
           ) : (
             <>
@@ -146,12 +157,13 @@ export const Navbar = () => {
                 <Label open={open}>Home</Label>
               </StyledLink>
 
-              <StyledLink to={`/requests/${user.id}`}>
+              {/* ✅ FIXED ROUTES */}
+              <StyledLink to="/requests/me">
                 <FaDonate />
                 <Label open={open}>My Requests</Label>
               </StyledLink>
 
-              <StyledLink to={`/profile/${user.id}`}>
+              <StyledLink to="/profile">
                 <FaUser />
                 <Label open={open}>Profile</Label>
               </StyledLink>
@@ -162,7 +174,11 @@ export const Navbar = () => {
 
       {/* LOGOUT */}
       <div style={{ marginBottom: 20 }}>
-        <StyledLink as="div" onClick={handleLogout} style={{ color: colors.red, cursor: "pointer" }}>
+        <StyledLink
+          as="div"
+          onClick={handleLogout}
+          style={{ color: colors.red, cursor: "pointer" }}
+        >
           <BiExit />
           <Label open={open}>Logout</Label>
         </StyledLink>

@@ -1,6 +1,8 @@
+// ResetPwd.jsx (FINAL)
 import React, { useState } from "react";
 import styled from "styled-components";
 import axios from "../api/axios";
+import { useNavigate } from "react-router-dom";
 import { Half } from "../components/Half";
 import { Input } from "../components/Input";
 import { Button } from "../components/Button";
@@ -43,6 +45,8 @@ const Success = styled.p`
 `;
 
 export const ResetPwd = () => {
+  const navigate = useNavigate();
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
 
@@ -55,9 +59,16 @@ export const ResetPwd = () => {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
+  // =====================
+  // VALIDATION
+  // =====================
+  const validateEmail = () => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email);
+  };
+
   const validateStep2 = () => {
     if (!/^\d{6}$/.test(form.code)) {
-      return "Code must be 6 digits";
+      return "Code must be exactly 6 digits";
     }
     if (form.password.length < 6) {
       return "Password must be at least 6 characters";
@@ -65,14 +76,21 @@ export const ResetPwd = () => {
     return null;
   };
 
+  // =====================
+  // SEND CODE
+  // =====================
   const handleSendCode = async () => {
+    if (!validateEmail()) {
+      return setError("Invalid email format");
+    }
+
     try {
       setLoading(true);
       setError("");
       setSuccess("");
 
       await axios.post("/auth/request-reset", {
-        email: form.email
+        email: form.email.trim().toLowerCase()
       });
 
       setStep(2);
@@ -85,12 +103,12 @@ export const ResetPwd = () => {
     }
   };
 
+  // =====================
+  // RESET PASSWORD
+  // =====================
   const handleReset = async () => {
     const validationError = validateStep2();
-    if (validationError) {
-      setError(validationError);
-      return;
-    }
+    if (validationError) return setError(validationError);
 
     try {
       setLoading(true);
@@ -98,12 +116,13 @@ export const ResetPwd = () => {
       setSuccess("");
 
       await axios.post("/auth/reset-password", {
-        email: form.email,
-        code: form.code,
+        email: form.email.trim().toLowerCase(),
+        code: form.code.trim(),
         password: form.password
       });
 
       setSuccess("Password updated successfully");
+      setTimeout(() => navigate("/login"), 2000);
 
     } catch (err) {
       setError(err?.response?.data?.msg || "Reset failed");
@@ -143,7 +162,10 @@ export const ResetPwd = () => {
                 label="6-digit Code"
                 value={form.code}
                 onChange={(e) =>
-                  setForm({ ...form, code: e.target.value })
+                  setForm({
+                    ...form,
+                    code: e.target.value.replace(/\D/g, "") // 🔥 digits only
+                  })
                 }
               />
 
@@ -162,7 +184,13 @@ export const ResetPwd = () => {
           {success && <Success>{success}</Success>}
 
           <Button
-            content={loading ? "Processing..." : step === 1 ? "Send Code" : "Reset Password"}
+            content={
+              loading
+                ? "Processing..."
+                : step === 1
+                ? "Send Code"
+                : "Reset Password"
+            }
             handleClick={step === 1 ? handleSendCode : handleReset}
             disabled={
               loading ||

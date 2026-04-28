@@ -10,6 +10,7 @@ import { ManageRequests } from "./pages/ManageRequests";
 import { ManageUsers } from "./pages/ManageUsers";
 import { HomePage } from "./pages/HomePage";
 import { UserRequests } from "./pages/UserRequests";
+import { ManageCategories } from "./pages/ManageCategories";
 
 function App() {
   return (
@@ -26,11 +27,12 @@ function App() {
          {/* //admin specific routes  */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/requests" element={<ManageRequests/>} />
+          <Route path="/categories" element={<ManageCategories/>} />
           <Route path="/users" element={<ManageUsers />} />
          {/* simple user routes */}
           <Route path="/" element={<HomePage/>} />
           <Route path="/requests/:id" element={<UserRequests />} />
-          <Route path="/profile/:id" element={<Profile />} />
+          <Route path="/profile" element={<Profile />} />
         </Route>
 
         {/* 404 */}

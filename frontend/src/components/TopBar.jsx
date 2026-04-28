@@ -58,7 +58,7 @@ export const TopBar = () => {
       {/* USER */}
       {user && (
         <Link
-          to={`/profile/${user.id}`}   // ✅ no need for /:id if backend uses token
+          to={`/profile`}   // ✅ no need for /:id if backend uses token
           style={{
             display: 'flex',
             alignItems: 'center',
