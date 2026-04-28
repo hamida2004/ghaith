@@ -61,7 +61,6 @@ exports.register = async (req, res) => {
       type,
       phone: phone || null,
       status: "pending",
-      is_admin:true
     });
 
     res.status(201).json({ msg: "User registered successfully" });
@@ -118,13 +117,22 @@ exports.logout = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
+const db = require("../models");
+const bcrypt = require("bcrypt");
 
 // =========================
 // REQUEST RESET
 // =========================
 exports.requestReset = async (req, res) => {
   try {
-    const { email } = req.body;
+    let { email } = req.body;
+
+    if (!email) {
+      return res.status(400).json({ msg: "Email is required" });
+    }
+
+    // 🔥 Normalize email
+    email = email.trim().toLowerCase();
 
     const user = await db.User.findOne({ where: { email } });
 
@@ -132,41 +140,95 @@ exports.requestReset = async (req, res) => {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    // 🔥 Generate 6-digit code
+    // =========================
+    // OPTIONAL RATE LIMIT (recommended)
+    // =========================
+    if (
+      user.reset_token &&
+      user.reset_token_expire &&
+      user.reset_token_expire > new Date()
+    ) {
+      return res.status(400).json({
+        msg: "A reset code was already sent. Please wait before requesting again."
+      });
+    }
+
+    // =========================
+    // GENERATE 6-DIGIT CODE
+    // =========================
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     user.reset_token = code;
-    user.reset_token_expire = new Date(Date.now() + 15 * 60 * 1000);
+    user.reset_token_expire = new Date(Date.now() + 15 * 60 * 1000); // 15 min
 
     await user.save();
 
+    // =========================
+    // SEND EMAIL (make sure implemented)
+    // =========================
     await sendResetEmail(email, code);
 
     res.json({ msg: "Reset code sent" });
 
   } catch (err) {
-    res.status(500).json({ msg: "Error sending email" });
+    console.error("REQUEST RESET ERROR:", err);
+    res.status(500).json({ msg: "Error sending reset email" });
   }
 };
+
 
 // =========================
 // RESET PASSWORD
 // =========================
 exports.resetPassword = async (req, res) => {
   try {
-    const { email, code, password } = req.body;
+    let { email, code, password } = req.body;
+
+    // =========================
+    // VALIDATION
+    // =========================
+    if (!email || !code || !password) {
+      return res.status(400).json({ msg: "All fields are required" });
+    }
+
+    if (!/^\d{6}$/.test(code)) {
+      return res.status(400).json({ msg: "Invalid code format" });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({ msg: "Password too short" });
+    }
+
+    // 🔥 Normalize
+    email = email.trim().toLowerCase();
+    code = code.trim();
 
     const user = await db.User.findOne({ where: { email } });
 
-    if (!user || user.reset_token !== code) {
+    if (!user) {
+      return res.status(400).json({ msg: "Invalid email or code" });
+    }
+
+    // =========================
+    // CHECK CODE
+    // =========================
+    if (!user.reset_token || user.reset_token !== code) {
       return res.status(400).json({ msg: "Invalid code" });
     }
 
-    if (user.reset_token_expire < new Date()) {
+    // =========================
+    // CHECK EXPIRATION
+    // =========================
+    if (!user.reset_token_expire || user.reset_token_expire < new Date()) {
       return res.status(400).json({ msg: "Code expired" });
     }
 
-    user.password = password; // hashed via hook
+    // =========================
+    // UPDATE PASSWORD
+    // =========================
+    user.password = password; // hashed via model hook
+
+    // clear reset fields
     user.reset_token = null;
     user.reset_token_expire = null;
 
@@ -175,21 +237,31 @@ exports.resetPassword = async (req, res) => {
     res.json({ msg: "Password updated successfully" });
 
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+    console.error("RESET PASSWORD ERROR:", err);
+    res.status(500).json({ msg: "Reset failed" });
   }
 };
+
+
 // =========================
 // GET CURRENT USER
 // =========================
 exports.me = async (req, res) => {
   try {
     const user = await db.User.findByPk(req.user.id, {
-      attributes: { exclude: ["password", "refresh_token"] }
+      attributes: {
+        exclude: ["password", "refresh_token", "reset_token"]
+      }
     });
+
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
 
     res.json(user);
 
   } catch (err) {
+    console.error("GET ME ERROR:", err);
     res.status(500).json({ msg: err.message });
   }
 };
