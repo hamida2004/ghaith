@@ -117,8 +117,6 @@ exports.logout = async (req, res) => {
     res.status(500).json({ msg: err.message });
   }
 };
-const db = require("../models");
-const bcrypt = require("bcrypt");
 
 // =========================
 // REQUEST RESET
@@ -127,46 +125,39 @@ exports.requestReset = async (req, res) => {
   try {
     let { email } = req.body;
 
+    console.log("REQUEST RESET EMAIL:", email);
+
     if (!email) {
       return res.status(400).json({ msg: "Email is required" });
     }
 
-    // 🔥 Normalize email
     email = email.trim().toLowerCase();
 
     const user = await db.User.findOne({ where: { email } });
+
+    console.log("USER FOUND:", user?.email);
 
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
 
-    // =========================
-    // OPTIONAL RATE LIMIT (recommended)
-    // =========================
-    if (
-      user.reset_token &&
-      user.reset_token_expire &&
-      user.reset_token_expire > new Date()
-    ) {
-      return res.status(400).json({
-        msg: "A reset code was already sent. Please wait before requesting again."
-      });
-    }
-
-    // =========================
-    // GENERATE 6-DIGIT CODE
-    // =========================
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     user.reset_token = code;
-    user.reset_token_expire = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+    user.reset_token_expire = new Date(Date.now() + 15 * 60 * 1000);
 
     await user.save();
 
-    // =========================
-    // SEND EMAIL (make sure implemented)
-    // =========================
-    await sendResetEmail(email, code);
+    console.log("CODE GENERATED:", code);
+
+    // 🔥 wrap email sending
+    try {
+      await sendResetEmail(email, code);
+      console.log("EMAIL SENT");
+    } catch (mailErr) {
+      console.error("EMAIL ERROR:", mailErr);
+      return res.status(500).json({ msg: "Email service failed" });
+    }
 
     res.json({ msg: "Reset code sent" });
 
