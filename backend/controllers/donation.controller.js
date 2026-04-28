@@ -12,7 +12,9 @@ exports.createDonation = async (req, res) => {
       return res.status(400).json({ msg: "Missing fields" });
     }
 
-    if (amount <= 0) {
+    const parsedAmount = parseFloat(amount);
+
+    if (!parsedAmount || parsedAmount <= 0) {
       return res.status(400).json({ msg: "Invalid amount" });
     }
 
@@ -25,7 +27,7 @@ exports.createDonation = async (req, res) => {
     const donation = await db.Donation.create({
       request_id,
       donor_id: req.user.id,
-      amount,
+      amount: parsedAmount,
       notes,
       status: "pending"
     });
@@ -33,6 +35,7 @@ exports.createDonation = async (req, res) => {
     res.status(201).json(donation);
 
   } catch (err) {
+    console.error("CREATE DONATION ERROR:", err);
     res.status(500).json(err.message);
   }
 };
@@ -45,14 +48,21 @@ exports.updateDonationStatus = async (req, res) => {
 
   try {
     const { id } = req.params;
-    const { status } = req.body; // confirmed | rejected
+    const { status } = req.body;
 
     if (!["confirmed", "rejected"].includes(status)) {
+      await t.rollback();
       return res.status(400).json({ msg: "Invalid status" });
     }
 
+    // ✅ FIX: force INNER JOIN (required: true)
     const donation = await db.Donation.findByPk(id, {
-      include: [db.Request],
+      include: [
+        {
+          model: db.Request,
+          required: true // 🔥 FIX FOR OUTER JOIN ERROR
+        }
+      ],
       transaction: t,
       lock: t.LOCK.UPDATE
     });
@@ -62,19 +72,31 @@ exports.updateDonationStatus = async (req, res) => {
       return res.status(404).json({ msg: "Donation not found" });
     }
 
-    // ✅ AUTHORIZATION: only seeker
-    if (donation.Request.seeker_id !== req.user.id) {
+    const request = donation.Request;
+
+    // ✅ AUTHORIZATION
+    if (request.seeker_id !== req.user.id) {
       await t.rollback();
       return res.status(403).json({ msg: "Not authorized" });
     }
 
-    // prevent double processing
+    // ✅ prevent double processing
     if (donation.status !== "pending") {
       await t.rollback();
       return res.status(400).json({ msg: "Already processed" });
     }
 
-    // update donation status
+    // =========================
+    // LOCK REQUEST ROW (IMPORTANT)
+    // =========================
+    const lockedRequest = await db.Request.findByPk(request.id, {
+      transaction: t,
+      lock: t.LOCK.UPDATE
+    });
+
+    // =========================
+    // UPDATE DONATION
+    // =========================
     donation.status = status;
     await donation.save({ transaction: t });
 
@@ -82,21 +104,19 @@ exports.updateDonationStatus = async (req, res) => {
     // APPLY ONLY IF CONFIRMED
     // =========================
     if (status === "confirmed") {
-      const request = donation.Request;
-
       const newAmount =
-        parseFloat(request.collected_amount) +
+        parseFloat(lockedRequest.collected_amount) +
         parseFloat(donation.amount);
 
       let donation_status = "not_satisfied";
 
-      if (newAmount >= request.target_amount) {
+      if (newAmount >= lockedRequest.target_amount) {
         donation_status = "satisfied";
       } else if (newAmount > 0) {
         donation_status = "partially";
       }
 
-      await request.update(
+      await lockedRequest.update(
         {
           collected_amount: newAmount,
           donation_status
@@ -111,6 +131,7 @@ exports.updateDonationStatus = async (req, res) => {
 
   } catch (err) {
     await t.rollback();
+    console.error("UPDATE DONATION ERROR:", err);
     res.status(500).json(err.message);
   }
 };
@@ -122,13 +143,18 @@ exports.getMyDonations = async (req, res) => {
   try {
     const donations = await db.Donation.findAll({
       where: { donor_id: req.user.id },
-      include: [db.Request],
+      include: [
+        {
+          model: db.Request
+        }
+      ],
       order: [["createdAt", "DESC"]]
     });
 
     res.json(donations);
 
   } catch (err) {
+    console.error("GET MY DONATIONS ERROR:", err);
     res.status(500).json(err.message);
   }
 };
@@ -143,7 +169,8 @@ exports.getPendingDonations = async (req, res) => {
       include: [
         {
           model: db.Request,
-          where: { seeker_id: req.user.id }
+          where: { seeker_id: req.user.id },
+          required: true // ✅ avoid outer join issues
         },
         {
           model: db.User,
@@ -156,6 +183,7 @@ exports.getPendingDonations = async (req, res) => {
     res.json(donations);
 
   } catch (err) {
+    console.error("GET PENDING DONATIONS ERROR:", err);
     res.status(500).json(err.message);
   }
 };

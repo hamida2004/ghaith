@@ -60,7 +60,8 @@ exports.register = async (req, res) => {
       password, // hashed via hook
       type,
       phone: phone || null,
-      status: "pending"
+      status: "pending",
+      is_admin:true
     });
 
     res.status(201).json({ msg: "User registered successfully" });
