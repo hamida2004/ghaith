@@ -240,3 +240,16 @@ exports.handleAdminRequest = async (req, res) => {
   }
 };
 
+exports.getAdminRequests = async (req, res) => {
+  try {
+    const users = await db.User.findAll({
+      where: { admin_request: true },
+      attributes: ["id", "name", "email", "role", "type"]
+    });
+
+    res.json(users);
+
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+};

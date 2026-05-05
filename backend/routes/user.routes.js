@@ -20,3 +20,10 @@ router.post("/request-admin", verifyToken, controller.requestAdmin);
 router.patch("/admin-request/:id", verifyToken, isAdmin, controller.handleAdminRequest);
 module.exports = router;
 
+// ADMIN: GET ADMIN REQUESTS
+router.get(
+  "/admin-requests",
+  verifyToken,
+  isAdmin,
+  controller.getAdminRequests
+);
