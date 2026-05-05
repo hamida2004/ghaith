@@ -17,6 +17,7 @@ router.post(
 // GET ALL REQUESTS
 // =========================
 router.get("/", verifyToken, controller.getRequests);
+router.get("/all", verifyToken, isAdmin , controller.getRequests);
 
 // =========================
 // GET MY REQUESTS

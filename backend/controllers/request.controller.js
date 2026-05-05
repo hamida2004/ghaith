@@ -76,6 +76,23 @@ exports.getRequests = async (req, res) => {
     res.status(500).json(err.message);
   }
 };
+exports.getAllRequests = async (req, res) => {
+  try {
+    const requests = await db.Request.findAll({
+      where: { status: "accepted" }, // 🔥 CRITICAL
+      include: [
+        { model: db.User, attributes: ["id", "name"] },
+        db.Category
+      ],
+      order: [["createdAt", "DESC"]]
+    });
+
+    res.json(requests);
+
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+};
 
 // =========================
 // GET MY REQUESTS (SEEKER)
