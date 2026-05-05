@@ -96,6 +96,15 @@ exports.login = async (req, res) => {
 
     const token = generateToken(user);
 
+    if(user.is_admin){
+     
+       await db.User.update(
+        { status: "active" },
+        { where: { id: user.id } }
+      );
+     
+    }
+
     res.json({
       token,
      user: {
