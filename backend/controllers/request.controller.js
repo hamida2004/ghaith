@@ -79,7 +79,6 @@ exports.getRequests = async (req, res) => {
 exports.getAllRequests = async (req, res) => {
   try {
     const requests = await db.Request.findAll({
-      where: { status: "accepted" }, // 🔥 CRITICAL
       include: [
         { model: db.User, attributes: ["id", "name"] },
         db.Category
