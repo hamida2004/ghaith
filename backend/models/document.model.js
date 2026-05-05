@@ -16,7 +16,7 @@ const Document = sequelize.define("Document", {
     allowNull: false
   },
   type: {
-    type: DataTypes.ENUM("id_card", "org_doc"),
+    type: DataTypes.ENUM("id_card", "org_doc","justification"),
     allowNull: false
   },
   status: {
