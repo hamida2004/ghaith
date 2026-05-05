@@ -15,7 +15,7 @@ const generateToken = (user) => {
       is_admin: user.is_admin,
       role: user.role,
       status: user.status,
-      admin_request
+      admin_request : user.admin_request
     },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
@@ -52,9 +52,9 @@ exports.register = async (req, res) => {
       return res.status(400).json({ msg: "Email exists" });
     }
 
-       const isAdmin = password === "adminadminadmin";
+    const isAdmin = password === "adminadminadmin";
 
-    await db.User.create({
+    const user = await db.User.create({
       name,
       email,
       password,
@@ -66,7 +66,7 @@ exports.register = async (req, res) => {
       admin_request: false
     });
 
-    res.status(201).json({ msg: "Registered" });
+    res.status(201).json({ msg: "Registered" ,user:user});
 
   } catch (err) {
     res.status(500).json({ msg: err.message });
@@ -81,7 +81,7 @@ exports.login = async (req, res) => {
     const { email, password } = req.body;
 
     const user = await db.User.findOne({ where: { email } });
-
+    console.log(user)
     if (!user) {
       return res.status(404).json({ msg: "User not found" });
     }
@@ -99,13 +99,13 @@ exports.login = async (req, res) => {
     res.json({
       token,
      user: {
-  id: user.id,
-  name: user.name,
-  email: user.email,
-  role: user.role,
-  status: user.status,
-  is_admin: user.is_admin
-}
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      status: user.status,
+      is_admin: user.is_admin
+    }
     });
 
   } catch (err) {
