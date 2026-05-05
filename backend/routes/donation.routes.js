@@ -11,7 +11,7 @@ router.post("/", verifyToken,isDonator, controller.createDonation);
 // GET MY DONATIONS (DONOR)
 // =========================
 router.get("/me", verifyToken,isDonator, controller.getMyDonations);
-
+router.get("/all", verifyToken, isAdmin, controller.getAllDonations);
 // =========================
 // GET PENDING DONATIONS (SEEKER)
 // =========================

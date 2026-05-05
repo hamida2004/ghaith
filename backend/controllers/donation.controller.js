@@ -4,6 +4,24 @@ const { sequelize } = require("../models");
 // =========================
 // CREATE DONATION (PENDING)
 // =========================
+// ADMIN GET ALL DONATIONS
+exports.getAllDonations = async (req, res) => {
+  try {
+    const donations = await db.Donation.findAll({
+      include: [
+        { model: db.User, attributes: ["id", "name"] },
+        { model: db.Request, attributes: ["id", "title"] }
+      ],
+      order: [["createdAt", "DESC"]]
+    });
+
+    res.json(donations);
+
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+};
+
 exports.createDonation = async (req, res) => {
   try {
     const { request_id, amount, notes } = req.body;
