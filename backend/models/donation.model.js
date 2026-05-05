@@ -42,11 +42,15 @@ const Donation = sequelize.define(
     // =========================
     // STATUS
     // =========================
-    status: {
-      type: DataTypes.ENUM("pending", "confirmed", "rejected"),
-      allowNull: false,
-      defaultValue: "pending"
-    }
+   status: {
+  type: DataTypes.ENUM(
+    "pending_admin",
+    "pending_seeker",
+    "confirmed",
+    "rejected"
+  ),
+  defaultValue: "pending_admin"
+}
   },
   {
     timestamps: true,

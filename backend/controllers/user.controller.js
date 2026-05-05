@@ -194,3 +194,49 @@ exports.updateDocumentStatus = async (req, res) => {
     res.status(500).json(err.message);
   }
 };
+
+exports.requestAdmin = async (req, res) => {
+  try {
+
+    if (req.user.is_admin) {
+      return res.status(400).json({ msg: "Already admin" });
+}
+    await db.User.update(
+      { admin_request: true },
+      { where: { id: req.user.id } }
+    );
+
+    res.json({ msg: "Admin request sent" });
+
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+};
+
+
+exports.handleAdminRequest = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approve } = req.body;
+
+    const user = await db.User.findByPk(id);
+
+    if (!user) return res.status(404).json({ msg: "Not found" });
+    if (!user.admin_request) {
+      return res.status(400).json({ msg: "No pending request" });
+    }
+    user.admin_request = false;
+
+    if (approve) {
+      user.is_admin = true;
+    }
+
+    await user.save();
+
+    res.json({ msg: "Admin request handled" });
+
+  } catch (err) {
+    res.status(500).json(err.message);
+  }
+};
+

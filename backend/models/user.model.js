@@ -33,7 +33,7 @@ const User = sequelize.define("User", {
 
   phone: {
     type: DataTypes.STRING,
-    allowNull: true,
+    allowNull: false,
     validate: {
       is: /^[0-9+\-\s()]{6,20}$/
     }
@@ -43,7 +43,15 @@ const User = sequelize.define("User", {
     type: DataTypes.ENUM("person", "organization"),
     allowNull: false
   },
+   role: {
+  type: DataTypes.ENUM("donator", "seeker"),
+  allowNull: false
+},
 
+admin_request: {
+  type: DataTypes.BOOLEAN,
+  defaultValue: false
+},
   status: {
     type: DataTypes.ENUM("pending", "active", "rejected"),
     defaultValue: "pending"

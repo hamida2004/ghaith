@@ -47,3 +47,17 @@ exports.isActive = (req, res, next) => {
   }
   next();
 };
+
+exports.isDonator = (req, res, next) => {
+  if (req.user.role !== "donator") {
+    return res.status(403).json({ msg: "Donator only" });
+  }
+  next();
+};
+
+exports.isSeeker = (req, res, next) => {
+  if (req.user.role !== "seeker") {
+    return res.status(403).json({ msg: "Seeker only" });
+  }
+  next();
+};

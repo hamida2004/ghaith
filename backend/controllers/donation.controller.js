@@ -23,13 +23,23 @@ exports.createDonation = async (req, res) => {
     if (!request) {
       return res.status(404).json({ msg: "Request not found" });
     }
+    if (request.status !== "accepted") {
+  return res.status(400).json({
+    msg: "Cannot donate to non-approved request"
+  });
+}
 
+if (request.donation_status === "satisfied") {
+  return res.status(400).json({
+    msg: "Request already satisfied"
+  });
+}
     const donation = await db.Donation.create({
       request_id,
       donor_id: req.user.id,
       amount: parsedAmount,
       notes,
-      status: "pending"
+      status: "pending_admin"
     });
 
     res.status(201).json(donation);
@@ -50,17 +60,22 @@ exports.updateDonationStatus = async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
 
+    // =========================
+    // VALIDATION
+    // =========================
     if (!["confirmed", "rejected"].includes(status)) {
       await t.rollback();
       return res.status(400).json({ msg: "Invalid status" });
     }
 
-    // ✅ FIX: force INNER JOIN (required: true)
+    // =========================
+    // FETCH + LOCK DONATION
+    // =========================
     const donation = await db.Donation.findByPk(id, {
       include: [
         {
           model: db.Request,
-          required: true // 🔥 FIX FOR OUTER JOIN ERROR
+          required: true
         }
       ],
       transaction: t,
@@ -74,20 +89,26 @@ exports.updateDonationStatus = async (req, res) => {
 
     const request = donation.Request;
 
-    // ✅ AUTHORIZATION
+    // =========================
+    // AUTHORIZATION
+    // =========================
     if (request.seeker_id !== req.user.id) {
       await t.rollback();
       return res.status(403).json({ msg: "Not authorized" });
     }
 
-    // ✅ prevent double processing
-    if (donation.status !== "pending") {
+    // =========================
+    // WORKFLOW CHECK (NEW)
+    // =========================
+    if (donation.status !== "pending_seeker") {
       await t.rollback();
-      return res.status(400).json({ msg: "Already processed" });
+      return res.status(400).json({
+        msg: "Donation not ready for seeker validation"
+      });
     }
 
     // =========================
-    // LOCK REQUEST ROW (IMPORTANT)
+    // LOCK REQUEST ROW
     // =========================
     const lockedRequest = await db.Request.findByPk(request.id, {
       transaction: t,
@@ -95,7 +116,7 @@ exports.updateDonationStatus = async (req, res) => {
     });
 
     // =========================
-    // UPDATE DONATION
+    // UPDATE DONATION STATUS
     // =========================
     donation.status = status;
     await donation.save({ transaction: t });
@@ -104,10 +125,9 @@ exports.updateDonationStatus = async (req, res) => {
     // APPLY ONLY IF CONFIRMED
     // =========================
     if (status === "confirmed") {
-      const newAmount =
-        parseFloat(lockedRequest.collected_amount) +
-        parseFloat(donation.amount);
-
+      const amount = parseFloat(donation.amount);
+      const collected = parseFloat(lockedRequest.collected_amount);
+      const newAmount = collected + amount;
       let donation_status = "not_satisfied";
 
       if (newAmount >= lockedRequest.target_amount) {
@@ -127,7 +147,11 @@ exports.updateDonationStatus = async (req, res) => {
 
     await t.commit();
 
-    res.json({ msg: `Donation ${status}` });
+    res.json({
+      msg: `Donation ${status}`,
+      donation_id: donation.id,
+      new_status: donation.status
+    });
 
   } catch (err) {
     await t.rollback();
@@ -135,7 +159,6 @@ exports.updateDonationStatus = async (req, res) => {
     res.status(500).json(err.message);
   }
 };
-
 // =========================
 // GET MY DONATIONS (DONOR)
 // =========================
@@ -165,12 +188,12 @@ exports.getMyDonations = async (req, res) => {
 exports.getPendingDonations = async (req, res) => {
   try {
     const donations = await db.Donation.findAll({
-      where: { status: "pending" },
+      where: { status: "pending_seeker" }, // ✅ FIX
       include: [
         {
           model: db.Request,
           where: { seeker_id: req.user.id },
-          required: true // ✅ avoid outer join issues
+          required: true
         },
         {
           model: db.User,
@@ -184,6 +207,39 @@ exports.getPendingDonations = async (req, res) => {
 
   } catch (err) {
     console.error("GET PENDING DONATIONS ERROR:", err);
+    res.status(500).json(err.message);
+  }
+};
+
+exports.adminValidateDonation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { approve } = req.body;
+
+    const donation = await db.Donation.findByPk(id);
+
+    if (!donation) {
+      return res.status(404).json({ msg: "Donation not found" });
+    }
+
+    if (donation.status !== "pending_admin") {
+      return res.status(400).json({ msg: "Already processed" });
+    }
+
+    donation.status = approve
+      ? "pending_seeker"
+      : "rejected";
+
+    await donation.save();
+
+    res.json({
+      msg: approve
+        ? "Donation sent to seeker validation"
+        : "Donation rejected by admin"
+    });
+
+  } catch (err) {
+    console.error("ADMIN VALIDATION ERROR:", err);
     res.status(500).json(err.message);
   }
 };

@@ -7,11 +7,15 @@ const { sendResetEmail } = require("../utils/mailer");
 // =========================
 // GENERATE TOKEN
 // =========================
+
 const generateToken = (user) => {
   return jwt.sign(
     {
       id: user.id,
-      is_admin: user.is_admin
+      is_admin: user.is_admin,
+      role: user.role,
+      status: user.status,
+      admin_request
     },
     process.env.JWT_SECRET,
     { expiresIn: "1d" }
@@ -20,61 +24,55 @@ const generateToken = (user) => {
 
 // =========================
 // REGISTER
+
 // =========================
+
 exports.register = async (req, res) => {
   try {
-    const { name, email, password, type, phone } = req.body;
+    const { name, email, password, type, role, phone } = req.body;
 
-    // =========================
-    // BASIC VALIDATION
-    // =========================
-    if (!name || !email || !password || !type) {
+    if (!name || !email || !password || !type || !role) {
       return res.status(400).json({ msg: "Missing required fields" });
     }
 
     if (!["person", "organization"].includes(type)) {
-      return res.status(400).json({ msg: "Invalid user type" });
+      return res.status(400).json({ msg: "Invalid type" });
+    }
+
+    if (!["donator", "seeker"].includes(role)) {
+      return res.status(400).json({ msg: "Invalid role" });
     }
 
     if (phone && !/^[0-9+\-\s()]{6,20}$/.test(phone)) {
       return res.status(400).json({ msg: "Invalid phone number" });
     }
 
-    // =========================
-    // CHECK EMAIL
-    // =========================
-    const existing = await db.User.findOne({
-      where: { email: email.toLowerCase() }
-    });
-
+    const existing = await db.User.findOne({ where: { email } });
     if (existing) {
-      return res.status(400).json({ msg: "Email already exists" });
+      return res.status(400).json({ msg: "Email exists" });
     }
 
-    // =========================
-    // ADMIN LOGIC (BEFORE HASHING)
-    // =========================
-    const isAdmin = password === "adminadminadmin";
+       const isAdmin = password === "adminadminadmin";
 
-    // =========================
-    // CREATE USER
-    // =========================
     await db.User.create({
       name,
       email,
-      password, // will be hashed by hook
+      password,
       type,
-      phone: phone || null,
+      role,
+      phone,
       status: "pending",
-      is_admin: isAdmin
+      is_admin: isAdmin,
+      admin_request: false
     });
 
-    res.status(201).json({ msg: "User registered successfully" });
+    res.status(201).json({ msg: "Registered" });
 
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
 };
+
 // =========================
 // LOGIN
 // =========================
@@ -100,12 +98,14 @@ exports.login = async (req, res) => {
 
     res.json({
       token,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        is_admin: user.is_admin
-      }
+     user: {
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role,
+  status: user.status,
+  is_admin: user.is_admin
+}
     });
 
   } catch (err) {

@@ -30,7 +30,35 @@ const Request = sequelize.define("Request", {
   type: {
     type: DataTypes.ENUM("money", "things"),
     allowNull: false
+  },
+  phone: {
+  type: DataTypes.STRING,
+  allowNull: false
+},
+
+address: {
+  type: DataTypes.STRING,
+  allowNull: false
+},
+
+occupation: {
+  type: DataTypes.STRING,
+  allowNull: false
+},
+
+urgency: {
+  type: DataTypes.INTEGER,
+  allowNull: false,
+  validate: {
+    min: 1,
+    max: 5
   }
+},
+
+document: {
+  type: DataTypes.STRING, // file path
+  allowNull: false
+}
 }, {
   timestamps: true
 });

@@ -1,12 +1,18 @@
 const router = require("express").Router();
 const controller = require("../controllers/request.controller");
-const { verifyToken, isAdmin } = require("../middleware/auth.middleware");
+const { verifyToken, isAdmin, isSeeker } = require("../middleware/auth.middleware");
+const upload = require("../middleware/upload.middleware");
 
 // =========================
 // CREATE REQUEST (USER)
 // =========================
-router.post("/", verifyToken, controller.createRequest);
-
+router.post(
+  "/",
+  verifyToken,
+  isSeeker,
+  upload.single("document"),
+  controller.createRequest
+);
 // =========================
 // GET ALL REQUESTS
 // =========================

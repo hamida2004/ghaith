@@ -13,5 +13,10 @@ router.get("/", verifyToken, isAdmin, controller.getUsers);
 router.patch("/:id/status", verifyToken, isAdmin, controller.updateStatus);
 router.patch("/:id/admin", verifyToken, isAdmin, controller.toggleAdmin);
 router.patch("/document/:id", verifyToken, isAdmin, controller.updateDocumentStatus);
+// USER
+router.post("/request-admin", verifyToken, controller.requestAdmin);
 
+// ADMIN
+router.patch("/admin-request/:id", verifyToken, isAdmin, controller.handleAdminRequest);
 module.exports = router;
+
