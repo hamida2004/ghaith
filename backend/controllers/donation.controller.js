@@ -3,33 +3,141 @@ const { sequelize } = require("../models");
 const { Op } = require("sequelize");
 
 // =========================
-// ADMIN: GET ALL DONATIONS
+// GET ALL DONATIONS (ADMIN)
 // =========================
 exports.getAllDonations = async (req, res) => {
   try {
-    const donations = await db.Donation.findAll({
-      include: [
-        { model: db.User, as: "Donor", attributes: ["id", "name"] },
-        { model: db.Request, attributes: ["id", "title"] },
-        // also pull child dispatches so the admin can see what was sent
-        {
-          model: db.Donation,
-          as: "Dispatches",
-          include: [
-            { model: db.Request, attributes: ["id", "title"] }
-          ]
-        }
-      ],
-      // only root donations (parent_id IS NULL)
-      where: { parent_id: null },
-      order: [["createdAt", "DESC"]]
-    });
+
+    const donations =
+      await db.Donation.findAll({
+
+        // only root donations
+        where: {
+          parent_id: null
+        },
+
+        include: [
+
+          // =========================
+          // DONOR
+          // =========================
+          {
+            model: db.User,
+            as: "Donor",
+
+            attributes: [
+              "id",
+              "name",
+              "email",
+              "phone"
+            ]
+          },
+
+          // =========================
+          // REQUEST
+          // =========================
+          {
+            model: db.Request,
+            as: "Request",
+
+            attributes: [
+              "id",
+              "title",
+              "status",
+              "donation_status",
+              "target_amount",
+              "collected_amount"
+            ],
+
+            include: [
+              {
+                model: db.User,
+                as: "Seeker",
+
+                attributes: [
+                  "id",
+                  "name"
+                ]
+              },
+
+              {
+                model: db.Category,
+                as: "Category",
+
+                attributes: [
+                  "id",
+                  "name"
+                ]
+              }
+            ]
+          },
+
+          // =========================
+          // CHILD DISPATCHES
+          // =========================
+          {
+            model: db.Donation,
+            as: "Dispatches",
+
+            include: [
+
+              {
+                model: db.Request,
+                as: "Request",
+
+                attributes: [
+                  "id",
+                  "title",
+                  "status",
+                  "donation_status"
+                ],
+
+                include: [
+                  {
+                    model: db.User,
+                    as: "Seeker",
+
+                    attributes: [
+                      "id",
+                      "name"
+                    ]
+                  }
+                ]
+              },
+
+              {
+                model: db.User,
+                as: "Donor",
+
+                attributes: [
+                  "id",
+                  "name"
+                ]
+              }
+
+            ]
+          }
+
+        ],
+
+        order: [["createdAt", "DESC"]]
+      });
 
     res.json(donations);
+
   } catch (err) {
-    res.status(500).json({ msg: err.message });
+
+    console.error(
+      "GET ALL DONATIONS ERROR:",
+      err
+    );
+
+    res.status(500).json({
+      msg: err.message
+    });
   }
 };
+
 
 // =========================
 // ADMIN: GET UNASSIGNED FREE DONATIONS
