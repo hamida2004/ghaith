@@ -221,10 +221,14 @@ exports.createDonation = async (req, res) => {
         msg: "Invalid amount"
       });
     }
-
+  
     // FREE DONATION
     if (!request_id) {
-
+      if (!notes?.trim()) {
+          return res.status(400).json({
+           msg: "Free donations require a description"
+          });
+        }
       const donation =
         await db.Donation.create({
 

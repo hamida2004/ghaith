@@ -29,6 +29,7 @@ app.use("/donations", require("./routes/donation.routes"));
 app.use("/users", require("./routes/user.routes"));
 app.use("/categories", require("./routes/categorie.routes"));
 app.use("/dashboard", require("./routes/dashboard.routes"));
+app.use("/messages", require("./routes/message.routes"));
 
 // =====================
 // DEV ROUTE: CLEAR DB

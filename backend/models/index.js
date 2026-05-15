@@ -4,6 +4,9 @@ const Donation = require("./donation.model");
 const Category = require("./category.model");
 const Document = require("./document.model");
 
+const Conversation = require("./conversation.model");
+const Message = require("./message.model");
+
 const sequelize = require("../config/db");
 
 // =====================
@@ -95,6 +98,60 @@ Document.belongsTo(User, {
 });
 
 // =====================
+// USER ↔ CONVERSATION
+// =====================
+
+// user conversations
+User.hasMany(Conversation, {
+  foreignKey: "user_id",
+  as: "Conversations"
+});
+
+Conversation.belongsTo(User, {
+  foreignKey: "user_id",
+  as: "User"
+});
+
+// assigned admin conversations
+User.hasMany(Conversation, {
+  foreignKey: "assigned_admin_id",
+  as: "AssignedConversations"
+});
+
+Conversation.belongsTo(User, {
+  foreignKey: "assigned_admin_id",
+  as: "AssignedAdmin"
+});
+
+// =====================
+// CONVERSATION ↔ MESSAGE
+// =====================
+
+Conversation.hasMany(Message, {
+  foreignKey: "conversation_id",
+  as: "Messages"
+});
+
+Message.belongsTo(Conversation, {
+  foreignKey: "conversation_id",
+  as: "Conversation"
+});
+
+// =====================
+// USER ↔ MESSAGE
+// =====================
+
+User.hasMany(Message, {
+  foreignKey: "sender_id",
+  as: "SentMessages"
+});
+
+Message.belongsTo(User, {
+  foreignKey: "sender_id",
+  as: "Sender"
+});
+
+// =====================
 // EXPORTS
 // =====================
 
@@ -104,5 +161,7 @@ module.exports = {
   Donation,
   Category,
   Document,
+  Conversation,
+  Message,
   sequelize
 };
