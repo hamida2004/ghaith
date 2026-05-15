@@ -13,6 +13,8 @@ import { UserRequests } from "./pages/UserRequests";
 import { ManageCategories } from "./pages/ManageCategories";
 import { ManageDonations } from "./pages/ManageDonations";
 import { UserDonations } from "./pages/UserDonations";
+import { UserInbox } from "./pages/UserInbox";
+import { AdminInbox } from "./pages/AdminInbox";
 
 function App() {
   return (
@@ -38,6 +40,10 @@ function App() {
           <Route path="/requests/:id" element={<UserRequests />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/donations/me" element={<UserDonations />} />
+
+
+          <Route path="/messages" element={<UserInbox />} />
+          <Route path="/admin/inbox" element={<AdminInbox />} />
 
         </Route>
 

@@ -1,10 +1,20 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState
+} from "react";
+
 import styled from "styled-components";
+
 import axios from "../api/axios";
+
 import { PageContainer } from "../components/PageContainer";
+
 import { UserCard } from "../components/UserCard";
+
 import { colors } from "../style/style";
+
 import { EmptyState } from "../components/EmptyState";
+
 import { useNavigate } from "react-router-dom";
 
 // =====================
@@ -44,17 +54,25 @@ const Card = styled.div`
   background: white;
   padding: 15px;
   border-radius: 10px;
+
   display: flex;
   justify-content: space-between;
+  align-items: center;
 `;
 
 const Button = styled.button`
   padding: 6px 12px;
+
   border: none;
   border-radius: 6px;
+
   cursor: pointer;
+
   color: white;
-  background: ${(p) => p.bg || colors.main};
+
+  background:
+    ${(p) =>
+      p.$bg || colors.main};
 `;
 
 const Loader = styled.p`
@@ -65,86 +83,171 @@ const Loader = styled.p`
 // COMPONENT
 // =====================
 export const ManageUsers = () => {
-  const [users, setUsers] = useState([]);
-  const [adminRequests, setAdminRequests] = useState([]);
-  const [currentUserId, setCurrentUserId] = useState(null);
-  const [loading, setLoading] = useState(true);
-  const navigate = useNavigate()
-  const [search, setSearch] = useState("");
+
+  const [users, setUsers] =
+    useState([]);
+
+  const [
+    adminRequests,
+    setAdminRequests
+  ] = useState([]);
+
+  const [
+    currentUserId,
+    setCurrentUserId
+  ] = useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [search, setSearch] =
+    useState("");
+
+  const navigate =
+    useNavigate();
 
   // =====================
-  // FETCH DATA
+  // FETCH
   // =====================
   useEffect(() => {
-    const fetchData = async () => {
+
+    const fetchData =
+      async () => {
+
       try {
-        const [usersRes, meRes, adminReqRes] = await Promise.all([
+
+        const [
+          usersRes,
+          meRes,
+          adminReqRes
+        ] = await Promise.all([
+
           axios.get("/users"),
+
           axios.get("/users/me"),
-          axios.get("/users/admin-requests")
+
+          axios.get(
+            "/users/admin-requests"
+          )
         ]);
 
+        const cleanUsers =
+          usersRes.data.map(
+            (u) =>
+              u.dataValues || u
+          );
 
-        console.log("../../././", usersRes,meRes,adminReqRes)
-        const clean = usersRes.data.map(u => u.dataValues || u);
+        const meId =
+          meRes.data.id;
 
-        const meId = meRes.data.id;
-        setCurrentUserId(meId);
+        setCurrentUserId(
+          meId
+        );
 
         // remove self
-        setUsers(clean.filter(u => u.id !== meId));
+        setUsers(
 
-        setAdminRequests(adminReqRes.data);
+          cleanUsers.filter(
+            (u) =>
+              u.id !== meId
+          )
+        );
+
+        setAdminRequests(
+          adminReqRes.data
+        );
 
       } catch (err) {
+
         console.error(err);
 
-    // ✅ HANDLE 403
-    if (err.response?.status === 403) {
-      navigate("/not-found"); // or "/403" if you have a dedicated page
-      return;
-    }
+        if (
+          err.response?.status ===
+          403
+        ) {
+
+          navigate(
+            "/not-found"
+          );
+        }
+
       } finally {
+
         setLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+
+  }, [navigate]);
 
   // =====================
   // HANDLE ADMIN REQUEST
   // =====================
-  const handleAdminRequest = async (id, approve) => {
-    try {
-      await axios.patch(`/users/admin-request/${id}`, { approve });
+  const handleAdminRequest =
+    async (id, approve) => {
 
-      // remove from UI
-      setAdminRequests(prev =>
-        prev.filter(u => u.id !== id)
-      );
+      try {
 
-      // update user list if approved
-      if (approve) {
-        setUsers(prev =>
-          prev.map(u =>
-            u.id === id ? { ...u, is_admin: true } : u
-          )
+        await axios.patch(
+
+          `/users/admin-request/${id}`,
+
+          { approve }
+        );
+
+        // remove request
+        setAdminRequests(
+          (prev) =>
+
+            prev.filter(
+              (u) =>
+                u.id !== id
+            )
+        );
+
+        // update user role
+        if (approve) {
+
+          setUsers(
+            (prev) =>
+
+              prev.map((u) =>
+
+                u.id === id
+
+                  ? {
+                      ...u,
+                      is_admin: true
+                    }
+
+                  : u
+              )
+          );
+        }
+
+      } catch (err) {
+
+        console.error(err);
+
+        alert(
+          "Action failed"
         );
       }
-
-    } catch (err) {
-      console.error(err);
-      alert("Action failed");
-    }
-  };
+    };
 
   // =====================
-  // FILTER USERS
+  // FILTER
   // =====================
-  const filteredUsers = users.filter(u =>
-    (u.name || "").toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredUsers =
+    users.filter((u) =>
+
+      (u.name || "")
+        .toLowerCase()
+        .includes(
+          search.toLowerCase()
+        )
+    );
 
   // =====================
   // UI
@@ -153,85 +256,211 @@ export const ManageUsers = () => {
     <PageContainer>
 
       <Header>
-        <Title>Manage Users</Title>
+
+        <Title>
+          Manage Users
+        </Title>
+
       </Header>
 
-      {/* =====================
-          ADMIN REQUESTS SECTION
-      ===================== */}
+      {/* ADMIN REQUESTS */}
       <Section>
-        <h2>Admin Requests</h2>
 
-        {adminRequests.length > 0 ? (
+        <h2>
+          Admin Requests
+        </h2>
+
+        {adminRequests.length >
+        0 ? (
+
           <List>
-            {adminRequests.map(u => (
+
+            {adminRequests.map(
+              (u) => (
+
               <Card key={u.id}>
+
                 <div>
-                  <strong>{u.name}</strong>
-                  <p>{u.email}</p>
+
+                  <strong>
+                    {u.name}
+                  </strong>
+
+                  <p>
+                    {u.email}
+                  </p>
+
                 </div>
 
-                <div style={{ display: "flex", gap: 10 }}>
+                <div
+                  style={{
+                    display: "flex",
+                    gap: 10
+                  }}
+                >
+
                   <Button
-                    bg={colors.green}
-                    onClick={() => handleAdminRequest(u.id, true)}
+                    $bg={
+                      colors.green
+                    }
+
+                    onClick={() =>
+                      handleAdminRequest(
+                        u.id,
+                        true
+                      )
+                    }
                   >
                     Approve
                   </Button>
 
                   <Button
-                    bg={colors.red}
-                    onClick={() => handleAdminRequest(u.id, false)}
+                    $bg={
+                      colors.red
+                    }
+
+                    onClick={() =>
+                      handleAdminRequest(
+                        u.id,
+                        false
+                      )
+                    }
                   >
                     Reject
                   </Button>
+
                 </div>
+
               </Card>
             ))}
+
           </List>
+
         ) : (
-          <p>No admin requests</p>
+
+          <p>
+            No admin requests
+          </p>
+
         )}
+
       </Section>
 
-      {/* =====================
-          USERS SECTION
-      ===================== */}
+      {/* USERS */}
       <Section>
-        <h2>All Users</h2>
+
+        <h2>
+          All Users
+        </h2>
 
         <Controls>
+
           <Input
-            placeholder="Search..."
+            placeholder="Search users..."
+
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+
+            onChange={(e) =>
+              setSearch(
+                e.target.value
+              )
+            }
           />
+
         </Controls>
 
         {loading ? (
-          <Loader>Loading...</Loader>
-        ) : filteredUsers.length > 0 ? (
+
+          <Loader>
+            Loading...
+          </Loader>
+
+        ) : filteredUsers.length >
+          0 ? (
+
           <List>
-            {filteredUsers.map(u => (
+
+            {filteredUsers.map(
+              (u) => (
+
               <UserCard
                 key={u.id}
+
                 user={u}
-                onToggleAdmin={async () =>{
-                  console.log('clickedd')
+
+                onToggleAdmin={
+                  async () => {
+
                   try {
-                    await axios.patch(`/users/${u.id}/admin`)
+
+                    await axios.patch(
+                      `/users/${u.id}/admin`
+                    );
+
+                    setUsers(
+                      (prev) =>
+
+                        prev.map(
+                          (usr) =>
+
+                            usr.id ===
+                            u.id
+
+                              ? {
+                                  ...usr,
+
+                                  is_admin:
+                                    !usr.is_admin
+                                }
+
+                              : usr
+                        )
+                    );
+
                   } catch (error) {
-                    console.error(error)
+
+                    console.error(
+                      error
+                    );
+
+                    alert(
+                      "Failed to update admin status"
+                    );
                   }
-                
-                }
-                }
+                }}
+
+                onViewDoc={() => {
+
+                  const doc =
+                    u.Documents?.[0];
+
+                  if (!doc) {
+
+                    return alert(
+                      "No document available"
+                    );
+                  }
+
+                  window.open(
+
+                    `https://ghaith-gtkr.onrender.com${doc.file_path}`,
+
+                    "_blank"
+                  );
+                }}
               />
             ))}
+
           </List>
+
         ) : (
-          <EmptyState message="No users found" />
+
+          <EmptyState
+            message="No users found"
+          />
+
         )}
+
       </Section>
 
     </PageContainer>

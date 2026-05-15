@@ -26,7 +26,8 @@ import {
   MdOutlineDashboard,
   MdCategory,
   MdVolunteerActivism,
-  MdOutlineRequestPage
+  MdOutlineRequestPage,
+  MdInbox
 } from "react-icons/md";
 
 import {
@@ -115,7 +116,6 @@ const StyledLink = styled(NavLink)`
   }
 
   &.active {
-
     background-color:
       ${colors.main}25;
 
@@ -185,10 +185,6 @@ export const Navbar = () => {
 
     } catch {
 
-      console.error(
-        "Invalid token"
-      );
-
       localStorage.removeItem(
         "token"
       );
@@ -248,15 +244,11 @@ export const Navbar = () => {
         >
 
           {!open ? (
-
             <FaBars />
-
           ) : (
-
             <IoClose
               color={colors.red}
             />
-
           )}
 
         </Toggle>
@@ -264,78 +256,56 @@ export const Navbar = () => {
         {/* MENU */}
         <Menu>
 
-          {/* =====================
-              ADMIN NAV
-          ===================== */}
+          {/* ADMIN */}
           {isAdmin && (
             <>
 
-              <StyledLink
-                to="/dashboard"
-              >
-
+              <StyledLink to="/dashboard">
                 <MdOutlineDashboard />
-
                 <Label open={open}>
                   Dashboard
                 </Label>
-
               </StyledLink>
 
-              <StyledLink
-                to="/requests"
-              >
-
+              <StyledLink to="/requests">
                 <MdOutlineRequestPage />
-
                 <Label open={open}>
                   Requests
                 </Label>
-
               </StyledLink>
 
-              <StyledLink
-                to="/users"
-              >
-
+              <StyledLink to="/users">
                 <FaUsers />
-
                 <Label open={open}>
                   Users
                 </Label>
-
               </StyledLink>
 
-              <StyledLink
-                to="/categories"
-              >
-
+              <StyledLink to="/categories">
                 <MdCategory />
-
                 <Label open={open}>
                   Categories
                 </Label>
-
               </StyledLink>
 
-              <StyledLink
-                to="/donations"
-              >
-
+              <StyledLink to="/donations">
                 <MdVolunteerActivism />
-
                 <Label open={open}>
                   Donations
                 </Label>
+              </StyledLink>
 
+              <StyledLink to="/admin/inbox">
+                <MdInbox />
+                <Label open={open}>
+                  Inbox
+                </Label>
               </StyledLink>
 
             </>
           )}
 
-          {/* =====================
-              SEEKER NAV
-          ===================== */}
+          {/* SEEKER */}
           {!isAdmin &&
             isSeeker && (
             <>
@@ -343,71 +313,70 @@ export const Navbar = () => {
               <StyledLink
                 to="/requests/me"
               >
-
                 <HiOutlineDocumentText />
-
                 <Label open={open}>
                   My Requests
                 </Label>
+              </StyledLink>
 
+              <StyledLink
+                to="/messages"
+              >
+                <MdInbox />
+                <Label open={open}>
+                  Messages
+                </Label>
               </StyledLink>
 
               <StyledLink
                 to="/profile"
               >
-
                 <FaUser />
-
                 <Label open={open}>
                   Profile
                 </Label>
-
               </StyledLink>
 
             </>
           )}
 
-          {/* =====================
-              DONATOR NAV
-          ===================== */}
+          {/* DONATOR */}
           {!isAdmin &&
             isDonator && (
             <>
 
-              <StyledLink
-                to="/"
-              >
-
+              <StyledLink to="/">
                 <FaHome />
-
                 <Label open={open}>
                   Home
                 </Label>
-
               </StyledLink>
 
               <StyledLink
                 to="/donations/me"
               >
-
                 <MdVolunteerActivism />
-
                 <Label open={open}>
                   My Donations
                 </Label>
+              </StyledLink>
 
+              <StyledLink
+                to="/messages"
+              >
+                <MdInbox />
+                <Label open={open}>
+                  Messages
+                </Label>
               </StyledLink>
 
               <StyledLink
                 to="/profile"
               >
-
                 <FaUser />
-
                 <Label open={open}>
                   Profile
                 </Label>
-
               </StyledLink>
 
             </>
@@ -426,9 +395,7 @@ export const Navbar = () => {
 
         <StyledLink
           as="div"
-          onClick={
-            handleLogout
-          }
+          onClick={handleLogout}
           style={{
             color: colors.red,
             cursor: "pointer"
