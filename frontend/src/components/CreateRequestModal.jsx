@@ -1,16 +1,11 @@
 import React, { useState } from "react";
 import styled from "styled-components";
 import { colors } from "../style/style";
+import { Button } from "./Button";
 
-// =====================
-// STYLES
-// =====================
 const Overlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   background: rgba(0,0,0,0.4);
   display: flex;
   justify-content: center;
@@ -19,134 +14,90 @@ const Overlay = styled.div`
 
 const Modal = styled.div`
   background: white;
-  padding: 30px;
+  padding: 25px;
   border-radius: 12px;
-  width: 350px;
+  width: 420px;
 `;
 
 const Input = styled.input`
   width: 100%;
   margin-bottom: 10px;
   padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
 `;
 
 const Select = styled.select`
   width: 100%;
   margin-bottom: 10px;
   padding: 10px;
-  border-radius: 8px;
-  border: 1px solid #ddd;
-`;
-
-const Button = styled.button`
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  background: ${(p) => p.bg || colors.main};
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
 `;
 
 const Error = styled.p`
   color: red;
   font-size: 13px;
-  margin-bottom: 10px;
 `;
 
-// =====================
-// COMPONENT
-// =====================
-export const CreateRequestModal = ({ onClose, onCreate, categories = [] }) => {
+export const CreateRequestModal = ({ onClose, onCreate, categories }) => {
   const [form, setForm] = useState({
     title: "",
     description: "",
     target_amount: "",
-    category_id: ""
+    category_id: "",
+    address: "",
+    occupation: "",
+    urgency: 1,
+    phone: "" // ✅ REQUIRED FIELD FIX
   });
 
+  const [file, setFile] = useState(null);
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const handleChange = (field, value) => {
-    setForm((prev) => ({ ...prev, [field]: value }));
+  const handleChange = (key, value) => {
+    setForm(prev => ({ ...prev, [key]: value }));
   };
 
-  // =====================
-  // VALIDATION + SUBMIT
-  // =====================
-  // const handleSubmit = async () => {
-  //   setError("");
-
-  //   if (!form.title || !form.description || !form.category_id) {
-  //     return setError("Please fill all required fields");
-  //   }
-
-  //   const amount = Number(form.target_amount);
-
-  //   if (!amount || amount <= 0) {
-  //     return setError("Invalid target amount");
-  //   }
-
-  //   try {
-  //     setLoading(true);
-
-  //     await onCreate({
-  //       ...form,
-  //       category_id: Number(form.category_id),
-  //       target_amount: amount
-  //     });
-
-  //   } catch (err) {
-  //     console.error(err);
-  //     setError("Failed to create request");
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
-
   const handleSubmit = async () => {
-  setError("");
+    setError("");
 
-  if (!form.title || !form.description || !form.category_id) {
-    return setError("Please fill all required fields");
-  }
+    if (
+      !form.title ||
+      !form.description ||
+      !form.category_id ||
+      !form.address ||
+      !form.occupation ||
+      !form.target_amount ||
+      !form.phone // ✅ FIX
+    ) {
+      return setError("All fields are required");
+    }
 
-  const amount = Number(form.target_amount);
-  if (!amount || amount <= 0) {
-    return setError("Invalid target amount");
-  }
+    if (!file) return setError("Document is required");
 
-  // 🔥 derive type from category
-  const selectedCategory = categories.find(
-    (c) => c.id === Number(form.category_id)
-  );
+    try {
+      const selectedCategory = categories.find(
+        c => c.id === Number(form.category_id)
+      );
 
-  const type =
-    selectedCategory?.name?.toLowerCase() === "money"
-      ? "money"
-      : "things";
+      const type =
+        selectedCategory?.name?.toLowerCase() === "money"
+          ? "money"
+          : "things";
 
-  try {
-    setLoading(true);
+      const data = new FormData();
 
-    await onCreate({
-      ...form,
-      category_id: Number(form.category_id),
-      target_amount: amount,
-      type // ✅ now always sent
-    });
+      Object.entries(form).forEach(([key, value]) => {
+        data.append(key, value);
+      });
 
-  } catch (err) {
-    console.error(err);
-    setError("Failed to create request");
-  } finally {
-    setLoading(false);
-  }
-};
+      data.append("type", type);
+      data.append("document", file);
+
+      await onCreate(data);
+
+    } catch (err) {
+      console.error(err);
+      setError("Failed to create request");
+    }
+  };
 
   return (
     <Overlay>
@@ -155,44 +106,36 @@ export const CreateRequestModal = ({ onClose, onCreate, categories = [] }) => {
 
         {error && <Error>{error}</Error>}
 
-        <Input
-          placeholder="Title"
-          value={form.title}
-          onChange={(e) => handleChange("title", e.target.value)}
-        />
-
-        <Input
-          placeholder="Description"
-          value={form.description}
-          onChange={(e) => handleChange("description", e.target.value)}
-        />
+        <Input placeholder="Title" onChange={e => handleChange("title", e.target.value)} />
+        <Input placeholder="Description" onChange={e => handleChange("description", e.target.value)} />
+        <Input type="number" placeholder="Target amount" onChange={e => handleChange("target_amount", e.target.value)} />
+        <Input placeholder="Phone" onChange={e => handleChange("phone", e.target.value)} /> {/* ✅ FIX */}
+        <Input placeholder="Address" onChange={e => handleChange("address", e.target.value)} />
+        <Input placeholder="Occupation" onChange={e => handleChange("occupation", e.target.value)} />
 
         <Input
           type="number"
-          placeholder="Target amount"
-          value={form.target_amount}
-          onChange={(e) => handleChange("target_amount", e.target.value)}
+          min={1}
+          max={5}
+          placeholder="Urgency (1-5)"
+          onChange={e => handleChange("urgency", e.target.value)}
         />
 
-        <Select
-          value={form.category_id}
-          onChange={(e) => handleChange("category_id", e.target.value)}
-        >
+        <Select onChange={e => handleChange("category_id", e.target.value)}>
           <option value="">Select Category</option>
-          {categories.map((c) => (
+          {categories.map(c => (
             <option key={c.id} value={c.id}>
               {c.name}
             </option>
           ))}
         </Select>
 
-        <Button onClick={handleSubmit} disabled={loading}>
-          {loading ? "Creating..." : "Create"}
-        </Button>
+        <input type="file" onChange={e => setFile(e.target.files[0])} />
 
-        <Button bg={colors.red} onClick={onClose}>
-          Cancel
-        </Button>
+        <div style={{ display: "flex", gap: 20, marginTop: 20 }}>
+          <Button handleClick={handleSubmit} content="Create" />
+          <Button color={colors.red} handleClick={onClose} content="Cancel" />
+        </div>
       </Modal>
     </Overlay>
   );

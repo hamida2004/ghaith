@@ -5,6 +5,7 @@ import { PageContainer } from "../components/PageContainer";
 import { colors } from "../style/style";
 import { EmptyState } from "../components/EmptyState";
 import { RequestCard } from "../components/RequestCard";
+import { useNavigate } from "react-router-dom";
 
 // =====================
 // STYLES
@@ -28,7 +29,6 @@ const Controls = styled.div`
   background: white;
   padding: 15px;
   border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.05);
 `;
 
 const Input = styled.input`
@@ -50,7 +50,6 @@ const ResetBtn = styled.button`
   color: white;
   border: none;
   border-radius: 8px;
-  cursor: pointer;
 `;
 
 const List = styled.div`
@@ -75,104 +74,138 @@ export const ManageRequests = () => {
   const [user, setUser] = useState(null);
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState("");
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [donationFilter, setDonationFilter] = useState("all");
-  const [sortOrder, setSortOrder] = useState("desc");
-
+const [urgencyOrder, setUrgencyOrder] = useState("desc"); 
+// desc = highest urgency first
+const navigate = useNavigate()
   // =====================
-  // FETCH USER + REQUESTS
+  // FETCH DATA
   // =====================
-  const fetchData = async () => {
-    try {
-      setError("");
-      setLoading(true);
+const fetchData = async () => {
+  try {
+    setLoading(true);
 
-      const [userRes, reqRes] = await Promise.all([
-        axios.get("/users/me"),
-        axios.get("/requests")
-      ]);
+    // =====================
+    // 1. GET USER FIRST
+    // =====================
+    const userRes = await axios.get("/users/me");
+    const userData = userRes.data;
 
-      setUser(userRes.data);
+    setUser(userData);
 
-      // normalize Sequelize raw
-      const clean = (reqRes.data || []).map(r => r.dataValues || r);
-      setRequests(clean);
+    const isAdmin = !!userData.is_admin;
+    const isDonator = userData.role === "donator";
 
-    } catch (err) {
-      console.error(err);
-      setError("Failed to load requests");
-    } finally {
-      setLoading(false);
+    // =====================
+    // 2. CHOOSE ENDPOINT
+    // =====================
+    let endpoint = "/requests"; // default (donator)
+
+    if (isAdmin) {
+      endpoint = "/requests/all";
     }
-  };
+
+    // =====================
+    // 3. FETCH REQUESTS
+    // =====================
+    const reqRes = await axios.get(endpoint);
+
+    const clean = (reqRes.data || []).map(r => r.dataValues || r);
+    setRequests(clean);
+
+    console.log("USER:", userData);
+    console.log("ENDPOINT:", endpoint);
+    console.log("REQUESTS:", reqRes.data);
+
+  } catch (err) {
+    console.error(err);
+
+    // ✅ HANDLE 403
+    if (err.response?.status === 403) {
+      navigate("/not-found"); // or "/403" if you have a dedicated page
+      return;
+    }
+  } finally {
+    setLoading(false);
+  }
+};
+
+
 
   useEffect(() => {
     fetchData();
   }, []);
 
   const isAdmin = !!user?.is_admin;
+  const isDonator = user?.role === "donator";
 
   // =====================
-  // UPDATE STATUS (ADMIN)
+  // ADMIN ACTION
   // =====================
   const updateStatus = async (id, status) => {
     try {
       await axios.patch(`/requests/${id}/status`, { status });
-
-      // refresh from backend (source of truth)
-      const res = await axios.get("/requests");
-      const clean = (res.data || []).map(r => r.dataValues || r);
-      setRequests(clean);
-
+      fetchData();
     } catch (err) {
       console.error(err);
-      alert("Failed to update request");
     }
   };
 
   // =====================
-  // FILTER + SORT
+  // DONATION ACTION
   // =====================
-  const filtered = useMemo(() => {
-    return requests
-      .filter(r =>
-        (r.title || "").toLowerCase().includes(search.toLowerCase())
-      )
-      .filter(r => statusFilter === "all" || r.status === statusFilter)
-      .filter(r => donationFilter === "all" || r.donation_status === donationFilter)
-      .sort((a, b) =>
-        sortOrder === "desc"
-          ? new Date(b.createdAt) - new Date(a.createdAt)
-          : new Date(a.createdAt) - new Date(b.createdAt)
-      );
-  }, [requests, search, statusFilter, donationFilter, sortOrder]);
+  const handleDonate = async (request) => {
+    try {
+      const amount = prompt("Enter donation amount:");
+      if (!amount || Number(amount) <= 0) return;
 
-  // =====================
-  // RESET
-  // =====================
-  const resetFilters = () => {
-    setSearch("");
-    setStatusFilter("all");
-    setDonationFilter("all");
-    setSortOrder("desc");
+      await axios.post("/donations", {
+        request_id: request.id,
+        amount
+      });
+
+      alert("Donation sent (pending admin approval)");
+    } catch (err) {
+      console.error(err);
+      alert("Donation failed");
+    }
   };
 
+  // =====================
+  // FILTER
+  // =====================
+const filtered = useMemo(() => {
+  return requests
+    .filter(r =>
+      (r.title || "").toLowerCase().includes(search.toLowerCase())
+    )
+    .filter(r =>
+      statusFilter === "all" || r.status === statusFilter
+    )
+    // 🔥 SORT BY URGENCY
+    .sort((a, b) => {
+      if (urgencyOrder === "desc") {
+        return (b.urgency || 0) - (a.urgency || 0); // high → low
+      } else {
+        return (a.urgency || 0) - (b.urgency || 0); // low → high
+      }
+    });
+
+}, [requests, search, statusFilter, urgencyOrder]);
   // =====================
   // UI
   // =====================
   return (
     <PageContainer>
       <Header>
-        <Title>Manage Requests</Title>
+        <Title>Requests</Title>
       </Header>
 
-      {/* CONTROLS */}
       <Controls>
         <Input
-          placeholder="Search requests..."
+          placeholder="Search..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
@@ -181,49 +214,41 @@ export const ManageRequests = () => {
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
         >
-          <option value="all">All Status</option>
-          <option value="pending">Pending</option>
+          <option value="all">All</option>
           <option value="accepted">Accepted</option>
-          <option value="refused">Refused</option>
+          <option value="pending">Pending</option>
         </Select>
-
-        <Select
-          value={donationFilter}
-          onChange={(e) => setDonationFilter(e.target.value)}
-        >
-          <option value="all">All Donation</option>
-          <option value="satisfied">Satisfied</option>
-          <option value="partially">Partially</option>
-          <option value="not_satisfied">Not Satisfied</option>
-        </Select>
-
-        <Select
-          value={sortOrder}
-          onChange={(e) => setSortOrder(e.target.value)}
-        >
-          <option value="desc">Newest</option>
-          <option value="asc">Oldest</option>
-        </Select>
-
-        <ResetBtn onClick={resetFilters}>
+<Select
+  value={urgencyOrder}
+  onChange={(e) => setUrgencyOrder(e.target.value)}
+>
+  <option value="desc">Urgency: High → Low</option>
+  <option value="asc">Urgency: Low → High</option>
+</Select>
+        <ResetBtn onClick={() => {
+          setSearch("");
+          setStatusFilter("all");
+        }}>
           Reset
         </ResetBtn>
       </Controls>
 
-      {/* CONTENT */}
       {loading ? (
         <Loader>Loading...</Loader>
-      ) : error ? (
-        <Error>{error}</Error>
       ) : filtered.length > 0 ? (
         <List>
-          {filtered.map((r) => (
+          {filtered.map(r => (
             <RequestCard
               key={r.id}
               request={r}
-              isAdmin={isAdmin}                 // 🔥 from user
+
+              isAdmin={isAdmin}
+              isDonator={isDonator}
+
               onAccept={() => updateStatus(r.id, "accepted")}
               onRefuse={() => updateStatus(r.id, "refused")}
+
+              onDonate={handleDonate}
             />
           ))}
         </List>

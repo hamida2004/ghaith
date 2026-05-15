@@ -57,7 +57,6 @@ const Msg = styled.p`
 export const Profile = () => {
   const [user, setUser] = useState(null);
 
-  // ✅ include phone
   const [form, setForm] = useState({
     name: "",
     email: "",
@@ -111,7 +110,6 @@ export const Profile = () => {
       setMsg("Profile updated");
       setError(false);
 
-      // optional sync
       setUser((prev) =>
         prev ? { ...prev, ...form } : prev
       );
@@ -141,11 +139,7 @@ export const Profile = () => {
         user.type === "organization" ? "org_doc" : "id_card"
       );
 
-      await axios.post("/users/upload", data, {
-        headers: {
-          "Content-Type": "multipart/form-data"
-        }
-      });
+      await axios.post("/users/upload", data);
 
       setMsg("Uploaded. Waiting for approval.");
       setError(false);
@@ -153,6 +147,27 @@ export const Profile = () => {
     } catch (err) {
       console.error(err);
       setMsg("Upload failed");
+      setError(true);
+    }
+  };
+
+  // =====================
+  // REQUEST ADMIN
+  // =====================
+  const requestAdmin = async () => {
+    try {
+      await axios.post("/users/request-admin");
+      setMsg("Admin request sent");
+      setError(false);
+
+      setUser(prev => ({
+        ...prev,
+        admin_request: true
+      }));
+
+    } catch (err) {
+      console.error(err);
+      setMsg("Failed to send request");
       setError(true);
     }
   };
@@ -167,7 +182,9 @@ export const Profile = () => {
         <h2>{user.name}</h2>
         <p>{user.type}</p>
 
-        {/* FORM */}
+        {/* =====================
+            PROFILE FORM
+        ===================== */}
         <Form>
           <Field>
             <Label>Name</Label>
@@ -187,7 +204,6 @@ export const Profile = () => {
             />
           </Field>
 
-          {/* ✅ NEW FIELD */}
           <Field>
             <Label>Phone</Label>
             <Input
@@ -200,23 +216,48 @@ export const Profile = () => {
 
         <Button handleClick={handleSave} content="Save" />
 
-        {/* DOCUMENT */}
-        {user.status !== "active" && (
-          <div style={{ marginTop: 30 }}>
-            <h3>Activate Account</h3>
+        {/* =====================
+            NON-ADMIN ONLY
+        ===================== */}
+        {!user.is_admin && (
+          <>
+            {/* ACTIVATE ACCOUNT */}
+            {user.status !== "active" && (
+              <div style={{ marginTop: 30 }}>
+                <h3>Activate Account</h3>
 
-            <div style={{ display: "flex", gap: 10 }}>
-              <input
-                type="file"
-                onChange={(e) => setFile(e.target.files[0])}
-              />
+                <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    type="file"
+                    onChange={(e) => setFile(e.target.files[0])}
+                  />
 
-              <Button
-                handleClick={handleUpload}
-                content="Upload Document"
-              />
-            </div>
-          </div>
+                  <Button
+                    handleClick={handleUpload}
+                    content="Upload Document"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* REQUEST ADMIN */}
+            {!user.admin_request && (
+              <div style={{ marginTop: 30 }}>
+                <h3>Become Admin</h3>
+
+                <Button
+                  handleClick={requestAdmin}
+                  content="Request Admin Access"
+                />
+              </div>
+            )}
+
+            {user.admin_request && (
+              <p style={{ marginTop: 10, color: colors.yellow }}>
+                Admin request pending approval
+              </p>
+            )}
+          </>
         )}
 
         {msg && <Msg error={error}>{msg}</Msg>}

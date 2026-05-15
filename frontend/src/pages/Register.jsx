@@ -28,23 +28,16 @@ const Title = styled.h1`
 
 const SubTitle = styled.h2`
   text-align: center;
-  color: ${colors.black};
 `;
 
 const Select = styled.select`
   padding: 12px;
   border-radius: 8px;
   border: 2px solid #ccc;
-  outline: none;
-
-  &:focus {
-    border-color: ${colors.main};
-  }
 `;
 
 const Error = styled.p`
   color: red;
-  font-size: 13px;
   text-align: center;
 `;
 
@@ -54,8 +47,10 @@ export const Register = () => {
   const [form, setForm] = useState({
     name: "",
     email: "",
+    phone:"",
     password: "",
-    type: "person"
+    type: "person",
+    role: "donator" // ✅ NEW
   });
 
   const [loading, setLoading] = useState(false);
@@ -63,6 +58,11 @@ export const Register = () => {
 
   const handleSubmit = async () => {
     try {
+      if (!form.name || !form.email || !form.password) {
+        setError("All fields required");
+        return;
+      }
+
       setLoading(true);
       setError("");
 
@@ -82,22 +82,14 @@ export const Register = () => {
     <div style={{ display: "flex", height: "100vh" }}>
       
       <Half direction="right" bgc={colors.main}>
-        <Image src={image} alt="illustration" />
-
-        <div style={{
-          display:'flex', gap:8,
-          position:'absolute', bottom:40, right:40,alignItems:'center'
-        }}>
-          <p>Already have an account?</p>
-          <CustomLink content="Sign In" color={colors.white} to="/login" />
-        </div>
+        <Image src={image} alt="" />
       </Half>
 
       <Half direction="left">
         <FormContainer>
 
-          <Title>Welcome!</Title>
-          <SubTitle>Create your account</SubTitle>
+          <Title>Welcome</Title>
+          <SubTitle>Create account</SubTitle>
 
           <Input
             label="Name"
@@ -109,6 +101,11 @@ export const Register = () => {
             label="Email"
             value={form.email}
             onChange={(e) => setForm({ ...form, email: e.target.value })}
+          /> 
+           <Input
+            label="Phone number"
+            value={form.phone}
+            onChange={(e) => setForm({ ...form, phone: e.target.value })}
           />
 
           <Input
@@ -118,12 +115,31 @@ export const Register = () => {
             onChange={(e) => setForm({ ...form, password: e.target.value })}
           />
 
+          {/* TYPE */}
           <Select
             value={form.type}
-            onChange={(e) => setForm({ ...form, type: e.target.value })}
+            onChange={(e) => {
+              const type = e.target.value;
+
+              setForm({
+                ...form,
+                type,
+                role: type === "organization" ? "seeker" : form.role
+              });
+            }}
           >
             <option value="person">Person</option>
             <option value="organization">Organization</option>
+          </Select>
+
+          {/* ROLE */}
+          <Select
+            value={form.role}
+            onChange={(e) => setForm({ ...form, role: e.target.value })}
+            disabled={form.type === "organization"}
+          >
+            <option value="donator">Donator</option>
+            <option value="seeker">Seeker</option>
           </Select>
 
           {error && <Error>{error}</Error>}
@@ -131,7 +147,6 @@ export const Register = () => {
           <Button
             handleClick={handleSubmit}
             content={loading ? "Registering..." : "Register"}
-            disabled={loading}
           />
 
         </FormContainer>

@@ -11,6 +11,8 @@ import { ManageUsers } from "./pages/ManageUsers";
 import { HomePage } from "./pages/HomePage";
 import { UserRequests } from "./pages/UserRequests";
 import { ManageCategories } from "./pages/ManageCategories";
+import { ManageDonations } from "./pages/ManageDonations";
+import { UserDonations } from "./pages/UserDonations";
 
 function App() {
   return (
@@ -29,10 +31,14 @@ function App() {
           <Route path="/requests" element={<ManageRequests/>} />
           <Route path="/categories" element={<ManageCategories/>} />
           <Route path="/users" element={<ManageUsers />} />
+          <Route path="/donations" element={<ManageDonations />} />
+
          {/* simple user routes */}
           <Route path="/" element={<HomePage/>} />
           <Route path="/requests/:id" element={<UserRequests />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/donations/me" element={<UserDonations />} />
+
         </Route>
 
         {/* 404 */}

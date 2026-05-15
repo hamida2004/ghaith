@@ -1,10 +1,23 @@
-import React, { useEffect, useState } from "react";
+import React, {
+  useEffect,
+  useState
+} from "react";
+
 import styled from "styled-components";
+
 import axios from "../api/axios";
+
+import { useNavigate } from "react-router-dom";
+
 import { PageContainer } from "../components/PageContainer";
+
 import { colors } from "../style/style";
+
 import { EmptyState } from "../components/EmptyState";
+
 import { CreateRequestModal } from "../components/CreateRequestModal";
+
+import { Button } from "../components/Button";
 
 // =====================
 // STYLES
@@ -13,7 +26,6 @@ const Header = styled.div`
   margin-bottom: 25px;
   display: flex;
   justify-content: space-between;
-  align-items: center;
 `;
 
 const Title = styled.h1`
@@ -30,25 +42,11 @@ const Card = styled.div`
   background: white;
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0,0,0,0.05);
-`;
-
-const Button = styled.button`
-  padding: 8px 12px;
-  background: ${colors.main};
-  color: white;
-  border: none;
-  border-radius: 8px;
-  cursor: pointer;
-`;
-
-const Loader = styled.p`
-  text-align: center;
 `;
 
 const DonationBox = styled.div`
-  margin-top: 10px;
-  padding: 10px;
+  margin-top: 12px;
+  padding: 12px;
   border: 1px solid #eee;
   border-radius: 8px;
 `;
@@ -56,119 +54,201 @@ const DonationBox = styled.div`
 const Actions = styled.div`
   display: flex;
   gap: 10px;
-  margin-top: 5px;
+  margin-top: 8px;
 `;
+
+const Badge = styled.span`
+  padding: 4px 10px;
+  border-radius: 10px;
+  font-size: 12px;
+  color: white;
+  background: ${(p) => p.$bg};
+`;
+
+// =====================
+// HELPERS
+// =====================
+const getStatusColor = (
+  status
+) => {
+
+  if (status === "pending") {
+    return colors.yellow;
+  }
+
+  if (status === "accepted") {
+    return colors.green;
+  }
+
+  if (status === "refused") {
+    return colors.red;
+  }
+
+  return "#999";
+};
 
 // =====================
 // COMPONENT
 // =====================
 export const UserRequests = () => {
-  const [requests, setRequests] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [pendingDonations, setPendingDonations] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [openModal, setOpenModal] = useState(false);
+
+  const navigate = useNavigate();
+
+  const [requests, setRequests] =
+    useState([]);
+
+  const [categories, setCategories] =
+    useState([]);
+
+  const [
+    pendingDonations,
+    setPendingDonations
+  ] = useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [openModal, setOpenModal] =
+    useState(false);
 
   // =====================
   // FETCH DATA
   // =====================
-const fetchData = async () => {
-  setLoading(true);
+  const fetchData = async () => {
 
-  try {
-    // =====================
-    // REQUESTS
-    // =====================
-    const reqRes = await axios.get("/requests/me");
-    setRequests(reqRes.data || []);
+    setLoading(true);
 
-    // =====================
-    // CATEGORIES (independent)
-    // =====================
     try {
-      const catRes = await axios.get("/categories");
 
-      const normalizedCategories = (catRes.data || []).map(
-        (c) => c.dataValues || c
+      // USER
+      const userRes =
+        await axios.get("/users/me");
+
+      const user =
+        userRes.data;
+
+      // ONLY SEEKERS
+      if (
+        user.role !== "seeker"
+      ) {
+
+        navigate("/");
+
+        return;
+      }
+
+      // FETCH
+      const [
+        reqRes,
+        catRes,
+        donationRes
+      ] = await Promise.all([
+
+        axios.get("/requests/me"),
+
+        axios.get("/categories"),
+
+        axios.get(
+          "/donations/pending"
+        )
+      ]);
+
+      setRequests(
+        reqRes.data || []
       );
 
-      setCategories(normalizedCategories);
-      console.log("CATEGORIES:", normalizedCategories);
+      setCategories(
+        catRes.data || []
+      );
+
+      setPendingDonations(
+        donationRes.data || []
+      );
 
     } catch (err) {
-      console.error("Categories error:", err);
-    }
 
-    // =====================
-    // DONATIONS (may fail)
-    // =====================
-    try {
-      const donationRes = await axios.get("/donations/pending");
-      setPendingDonations(donationRes.data || []);
-    } catch (err) {
-      console.error("Donations error:", err);
-      setPendingDonations([]); // fallback
-    }
+      console.error(err);
 
-  } catch (err) {
-    console.error("Requests error:", err);
-  } finally {
-    setLoading(false);
-  }
-};
+      if (
+        err.response?.status === 401 ||
+        err.response?.status === 403
+      ) {
+
+        navigate("/");
+      }
+
+    } finally {
+
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     fetchData();
   }, []);
 
-  // ✅ correct logging after state update
-  useEffect(() => {
-    console.log("UPDATED categories:", categories);
-  }, [categories]);
-
   // =====================
   // CREATE REQUEST
   // =====================
-  const createRequest = async (form) => {
-    try {
-      if (!form.title || !form.description || !form.category_id) {
-        return alert("Please fill all fields");
-      }
+  const createRequest = async (
+    formData
+  ) => {
 
-      await axios.post("/requests", form);
+    try {
+
+      await axios.post(
+        "/requests",
+        formData,
+        {
+          headers: {
+            "Content-Type":
+              "multipart/form-data"
+          }
+        }
+      );
 
       setOpenModal(false);
 
-      // refresh requests
-      const res = await axios.get("/requests/me");
-      setRequests(res.data || []);
+      fetchData();
 
     } catch (err) {
-      console.error(err);
-      alert("Failed to create request");
-    }
-  };
 
-  // =====================
-  // CONFIRM / REJECT DONATION
-  // =====================
-  const handleDonationStatus = async (id, status) => {
-    try {
-      await axios.patch(`/donations/${id}/status`, { status });
-
-      // remove locally
-      setPendingDonations((prev) =>
-        prev.filter((d) => d.id !== id)
+      console.error(
+        err.response?.data ||
+        err
       );
 
-      // refresh requests (important)
-      const res = await axios.get("/requests/me");
-      setRequests(res.data || []);
-
-    } catch (err) {
-      console.error(err);
-      alert("Action failed");
+      alert(
+        err.response?.data?.msg ||
+        "Failed to create request"
+      );
     }
   };
+
+  // =====================
+  // SEEKER VALIDATION
+  // =====================
+  const handleDonationStatus =
+    async (id, status) => {
+
+      try {
+
+        await axios.patch(
+          `/donations/${id}/status`,
+          { status }
+        );
+
+        fetchData();
+
+      } catch (err) {
+
+        console.error(err);
+
+        alert(
+          "Failed to update donation"
+        );
+      }
+    };
 
   // =====================
   // UI
@@ -178,80 +258,279 @@ const fetchData = async () => {
 
       {/* HEADER */}
       <Header>
-        <Title>My Requests</Title>
 
-        <Button onClick={() => setOpenModal(true)}>
-          + Add Request
-        </Button>
+        <Title>
+          My Requests
+        </Title>
+
+        <Button
+          handleClick={() =>
+            setOpenModal(true)
+          }
+          content="+ Add Request"
+        />
+
       </Header>
 
-      {/* LIST */}
+      {/* LOADING */}
       {loading ? (
-        <Loader>Loading...</Loader>
+
+        <p>Loading...</p>
+
       ) : requests.length > 0 ? (
+
         <List>
+
           {requests.map((r) => {
-            const donationsForRequest = pendingDonations.filter(
-              (d) => d.request_id === r.id
-            );
+
+            const related =
+              pendingDonations.filter(
+                (d) =>
+                  d.request_id ===
+                  r.id
+              );
 
             return (
               <Card key={r.id}>
+
+                {/* HEADER */}
                 <h3>{r.title}</h3>
-                <p>{r.description}</p>
-                <p><strong>Status:</strong> {r.status}</p>
-                <p><strong>Collected:</strong> {r.collected_amount}</p>
-                <p><strong>Target:</strong> {r.target_amount}</p>
 
-                {/* =====================
-                    PENDING DONATIONS
-                ===================== */}
-                {donationsForRequest.length > 0 && (
-                  <div style={{ marginTop: 15 }}>
-                    <strong>Pending Donations:</strong>
+                <Badge
+                  $bg={getStatusColor(
+                    r.status
+                  )}
+                >
+                  {r.status}
+                </Badge>
 
-                    {donationsForRequest.map((d) => (
-                      <DonationBox key={d.id}>
-                        <p><strong>Amount:</strong> {d.amount}</p>
-                        <p><strong>From:</strong> {d.User?.name}</p>
+                {/* DETAILS */}
+                <p>
+                  <strong>
+                    Description:
+                  </strong>{" "}
+                  {r.description ||
+                    "No description"}
+                </p>
+
+                <p>
+                  <strong>Type:</strong>{" "}
+                  {r.type}
+                </p>
+
+                {/* FINANCIAL */}
+                <p>
+                  <strong>Target:</strong>{" "}
+                  {r.target_amount}
+                </p>
+
+                <p>
+                  <strong>
+                    Collected:
+                  </strong>{" "}
+                  {r.collected_amount}
+                </p>
+
+                <p>
+                  <strong>
+                    Progress:
+                  </strong>{" "}
+
+                  {Math.min(
+                    100,
+                    Math.round(
+                      (
+                        parseFloat(
+                          r.collected_amount || 0
+                        ) /
+
+                        parseFloat(
+                          r.target_amount || 1
+                        )
+                      ) * 100
+                    )
+                  )}
+
+                  %
+                </p>
+
+                <p>
+                  <strong>
+                    Donation Status:
+                  </strong>{" "}
+                  {r.donation_status}
+                </p>
+
+                {/* PERSONAL */}
+                <p>
+                  <strong>Phone:</strong>{" "}
+                  {r.phone}
+                </p>
+
+                <p>
+                  <strong>
+                    Address:
+                  </strong>{" "}
+                  {r.address}
+                </p>
+
+                <p>
+                  <strong>
+                    Occupation:
+                  </strong>{" "}
+                  {r.occupation}
+                </p>
+
+                {/* URGENCY */}
+                <p>
+                  <strong>
+                    Urgency:
+                  </strong>{" "}
+
+                  <Badge
+                    $bg={
+                      r.urgency >= 4
+                        ? colors.red
+                        : r.urgency >= 2
+                        ? colors.yellow
+                        : colors.green
+                    }
+                  >
+                    {r.urgency}/5
+                  </Badge>
+                </p>
+
+                {/* DOCUMENT */}
+                <p>
+                  <strong>
+                    Document:
+                  </strong>{" "}
+
+                  {r.document ? (
+                    <a
+                      href={`https://ghaith-gtkr.onrender.com${r.document}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      View
+                    </a>
+                  ) : (
+                    "None"
+                  )}
+                </p>
+
+                {/* DATE */}
+                <p>
+                  <strong>
+                    Created:
+                  </strong>{" "}
+
+                  {new Date(
+                    r.createdAt
+                  ).toLocaleDateString()}
+                </p>
+
+                {/* DONATIONS */}
+                {related.length > 0 && (
+                  <>
+
+                    <h4
+                      style={{
+                        marginTop: 15
+                      }}
+                    >
+                      Pending Donations
+                    </h4>
+
+                    {related.map((d) => (
+
+                      <DonationBox
+                        key={d.id}
+                      >
+
+                        <p>
+                          <strong>
+                            Donor:
+                          </strong>{" "}
+
+                          {d.Donor?.name ||
+                            "Unknown"}
+                        </p>
+
+                        <p>
+                          <strong>
+                            Amount:
+                          </strong>{" "}
+                          {d.amount}
+                        </p>
+
+                        {d.notes && (
+                          <p>
+                            <strong>
+                              Notes:
+                            </strong>{" "}
+                            {d.notes}
+                          </p>
+                        )}
 
                         <Actions>
-                          <Button
-                            onClick={() =>
-                              handleDonationStatus(d.id, "confirmed")
-                            }
-                            style={{ background: colors.green }}
-                          >
-                            Confirm
-                          </Button>
 
                           <Button
-                            onClick={() =>
-                              handleDonationStatus(d.id, "rejected")
+                            color={
+                              colors.green
                             }
-                            style={{ background: colors.red }}
-                          >
-                            Reject
-                          </Button>
+                            handleClick={() =>
+                              handleDonationStatus(
+                                d.id,
+                                "confirmed"
+                              )
+                            }
+                            content="Confirm"
+                          />
+
+                          <Button
+                            color={
+                              colors.red
+                            }
+                            handleClick={() =>
+                              handleDonationStatus(
+                                d.id,
+                                "rejected"
+                              )
+                            }
+                            content="Reject"
+                          />
+
                         </Actions>
+
                       </DonationBox>
                     ))}
-                  </div>
+
+                  </>
                 )}
+
               </Card>
             );
           })}
+
         </List>
+
       ) : (
-        <EmptyState message="No requests available" />
+
+        <EmptyState
+          message="No requests"
+        />
+
       )}
 
       {/* MODAL */}
       {openModal && (
         <CreateRequestModal
-          onClose={() => setOpenModal(false)}
+          onClose={() =>
+            setOpenModal(false)
+          }
           onCreate={createRequest}
-          categories={categories} // ✅ now always correct
+          categories={categories}
         />
       )}
 

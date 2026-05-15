@@ -91,9 +91,11 @@ export const UserCard = ({
 
       {open && (
         <Details>
+          <p><strong>Phone Number:</strong> {user.phone}</p>
           <p><strong>Type:</strong> {user.type}</p>
+          <p><strong>Role:</strong> {user.role}</p>
           <p><strong>Status:</strong> {user.status}</p>
-
+  
           <p><strong>Document:</strong> {doc ? doc.status : "None"}</p>
 
           <Actions>

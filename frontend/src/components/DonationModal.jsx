@@ -17,7 +17,7 @@ const Modal = styled.div`
   background: white;
   padding: 25px;
   border-radius: 12px;
-  width: 350px;
+  width: 380px;
 `;
 
 const Input = styled.input`
@@ -34,9 +34,39 @@ const Info = styled.p`
   margin-top: 5px;
 `;
 
-export const DonationModal = ({ request, onClose, onSuccess }) => {
+const ToggleContainer = styled.div`
+  display: flex;
+  gap: 10px;
+  margin: 15px 0;
+`;
+
+const ToggleButton = styled.button`
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+
+  background: ${(p) =>
+    p.active ? colors.main : "#f0f0f0"};
+
+  color: ${(p) =>
+    p.active ? "white" : "#333"};
+`;
+
+export const DonationModal = ({
+  request,
+  onClose,
+  onSuccess
+}) => {
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // NEW
+  const [mode, setMode] = useState(
+    request ? "targeted" : "free"
+  );
 
   const handleDonate = async () => {
     const value = parseFloat(amount);
@@ -48,17 +78,30 @@ export const DonationModal = ({ request, onClose, onSuccess }) => {
     try {
       setLoading(true);
 
-      await axios.post("/donations", {
-        request_id: request.id,
+      const payload = {
         amount: value
-      });
+      };
 
-      alert("Donation sent. Waiting for confirmation.");
+      // only attach request_id for targeted donations
+      if (mode === "targeted" && request) {
+        payload.request_id = request.id;
+      }
+
+      await axios.post("/donations", payload);
+
+      alert(
+        mode === "free"
+          ? "Free donation submitted successfully."
+          : "Donation sent. Waiting for confirmation."
+      );
+
       onSuccess();
 
     } catch (err) {
       console.error(err);
-      alert("Donation failed");
+      alert(
+        err?.response?.data?.msg || "Donation failed"
+      );
     } finally {
       setLoading(false);
     }
@@ -67,8 +110,34 @@ export const DonationModal = ({ request, onClose, onSuccess }) => {
   return (
     <Overlay>
       <Modal>
-        <h3>Donate to</h3>
-        <p>{request.title}</p>
+        <h3>
+          {mode === "free"
+            ? "Make a Free Donation"
+            : "Donate to"}
+        </h3>
+
+        {mode === "targeted" && request && (
+          <p>{request.title}</p>
+        )}
+
+        {/* NEW TOGGLE */}
+        {request && (
+          <ToggleContainer>
+            <ToggleButton
+              active={mode === "targeted"}
+              onClick={() => setMode("targeted")}
+            >
+              Targeted
+            </ToggleButton>
+
+            <ToggleButton
+              active={mode === "free"}
+              onClick={() => setMode("free")}
+            >
+              Free Donation
+            </ToggleButton>
+          </ToggleContainer>
+        )}
 
         <Input
           type="number"
@@ -78,27 +147,36 @@ export const DonationModal = ({ request, onClose, onSuccess }) => {
         />
 
         <Info>
-          This donation will be confirmed by the request owner.
+          {mode === "free"
+            ? "The admin will allocate this donation to a request."
+            : "This donation will be confirmed by the request owner."}
         </Info>
 
         <div
-        style={{
-          display:'flex',
-          width:"100%",
-          alignItems:'center',
-          justifyContent:'space-between',
-          padding:'auto'
-        }}
+          style={{
+            display: "flex",
+            width: "100%",
+            alignItems: "center",
+            justifyContent: "space-between",
+            gap: "10px",
+            marginTop: "15px"
+          }}
         >
           <Button
-          content={loading ? "Processing..." : "Confirm"}
-          handleClick={handleDonate}
-        />
+            content={
+              loading
+                ? "Processing..."
+                : "Confirm"
+            }
+            handleClick={handleDonate}
+          />
 
-        <Button content="Cancel" handleClick={onClose} />
-
+          <Button
+            content="Cancel"
+            handleClick={onClose}
+          />
         </div>
-              </Modal>
+      </Modal>
     </Overlay>
   );
 };

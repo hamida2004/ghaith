@@ -1,13 +1,27 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, {
+  useState,
+  useEffect,
+  useMemo
+} from "react";
+
 import styled from "styled-components";
+
 import { useNavigate } from "react-router-dom";
+
 import { colors } from "../style/style";
+
 import { RequestCard } from "../components/DonationCard";
+
 import { DonationModal } from "../components/DonationModal";
+
 import { PageContainer } from "../components/PageContainer";
+
 import { Button } from "../components/Button";
+
 import noData from "../assets/images/noData.svg";
+
 import axios from "../api/axios";
+
 import ai from "../api/ai";
 
 // =====================
@@ -91,83 +105,156 @@ const EmptyText = styled.h2`
 // COMPONENT
 // =====================
 export const HomePage = () => {
+
   const navigate = useNavigate();
 
-  const [requests, setRequests] = useState([]);
-  const [recommended, setRecommended] = useState([]);
-  const [categories, setCategories] = useState([]);
-  const [user, setUser] = useState(null);
+  const [requests, setRequests] =
+    useState([]);
 
-  const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("all");
-  const [status, setStatus] = useState("all");
-  const [sort, setSort] = useState("desc");
+  const [recommended, setRecommended] =
+    useState([]);
 
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [categories, setCategories] =
+    useState([]);
+
+  const [user, setUser] =
+    useState(null);
+
+  const [search, setSearch] =
+    useState("");
+
+  const [category, setCategory] =
+    useState("all");
+
+  const [status, setStatus] =
+    useState("all");
+
+  const [sort, setSort] =
+    useState("desc");
+
+  const [selectedRequest, setSelectedRequest] =
+    useState(null);
 
   // =====================
   // FETCH DATA
   // =====================
   const fetchData = async () => {
+
     try {
-      const userRes = await axios.get("/users/me");
-      const userData = userRes.data;
+
+      const userRes =
+        await axios.get("/users/me");
+
+      const userData =
+        userRes.data;
+
       setUser(userData);
 
-      const userId = userData.id;
+      const userId =
+        userData.id;
 
-      const [reqRes, aiRes, catRes] = await Promise.all([
+      // SEEKER → REDIRECT
+      if (
+        userData.role === "seeker"
+      ) {
+
+        navigate("/requests/me");
+
+        return;
+      }
+
+      // ADMIN / DONATOR
+      const [
+        reqRes,
+        aiRes,
+        catRes
+      ] = await Promise.all([
+
         axios.get("/requests"),
-        ai.get(`/recommend/${userId}`),
+
+        ai.get(
+          `/recommend/${userId}`
+        ),
+
         axios.get("/categories")
       ]);
 
-      const allRequests = reqRes.data || [];
-      const aiRequests = aiRes.data.recommendations || [];
+      const allRequests =
+        reqRes.data || [];
 
-      const normalizedCategories = (catRes.data || []).map(
-        (c) => c.dataValues || c
+      const aiRequests =
+        aiRes.data.recommendations || [];
+
+      const normalizedCategories =
+        (catRes.data || []).map(
+          (c) =>
+            c.dataValues || c
+        );
+
+      setCategories(
+        normalizedCategories
       );
-      setCategories(normalizedCategories);
 
       // =====================
-      // MAP REQUESTS
+      // REQUEST MAP
       // =====================
       const requestMap = {};
+
       allRequests.forEach((r) => {
         requestMap[r.id] = r;
       });
 
-      const fullAI = aiRequests.map((r) =>
-        requestMap[r.id] ? requestMap[r.id] : r
-      );
+      const fullAI =
+        aiRequests.map((r) =>
+          requestMap[r.id]
+            ? requestMap[r.id]
+            : r
+        );
 
       // =====================
-      // 🔥 FILTER RULES
+      // FILTER RULES
       // =====================
       const isValid = (r) =>
         r.status === "accepted" &&
-        r.donation_status !== "satisfied" &&
-        Number(r.seeker_id) !== Number(userId);
+        r.donation_status !==
+          "satisfied" &&
+        Number(r.seeker_id) !==
+          Number(userId);
 
-      const cleanRecommended = fullAI.filter(isValid);
-      const cleanRequests = allRequests.filter(isValid);
+      const cleanRecommended =
+        fullAI.filter(isValid);
+
+      const cleanRequests =
+        allRequests.filter(isValid);
 
       // =====================
-      // MERGE (recommended first)
+      // MERGE
       // =====================
       const merged = [
+
         ...cleanRecommended,
+
         ...cleanRequests.filter(
-          (r) => !cleanRecommended.some((rec) => rec.id === r.id)
+          (r) =>
+            !cleanRecommended.some(
+              (rec) =>
+                rec.id === r.id
+            )
         )
       ];
 
-      setRecommended(cleanRecommended);
+      setRecommended(
+        cleanRecommended
+      );
+
       setRequests(merged);
 
     } catch (err) {
-      console.error("FETCH ERROR:", err);
+
+      console.error(
+        "FETCH ERROR:",
+        err
+      );
     }
   };
 
@@ -176,34 +263,70 @@ export const HomePage = () => {
   }, []);
 
   // =====================
-  // FILTER UI
+  // FILTERS
   // =====================
-  const filtered = useMemo(() => {
-    return requests
-      .filter((r) =>
-        r.title.toLowerCase().includes(search.toLowerCase())
-      )
-      .filter((r) =>
-        category === "all"
-          ? true
-          : r.category_id === Number(category)
-      )
-      .filter((r) =>
-        status === "all"
-          ? true
-          : r.donation_status === status
-      )
-      .sort((a, b) =>
-        sort === "desc"
-          ? new Date(b.createdAt) - new Date(a.createdAt)
-          : new Date(a.createdAt) - new Date(b.createdAt)
-      );
-  }, [requests, search, category, status, sort]);
+  const filtered =
+    useMemo(() => {
+
+      return requests
+
+        .filter((r) =>
+          r.title
+            .toLowerCase()
+            .includes(
+              search.toLowerCase()
+            )
+        )
+
+        .filter((r) =>
+          category === "all"
+            ? true
+            : r.category_id ===
+              Number(category)
+        )
+
+        .filter((r) =>
+          status === "all"
+            ? true
+            : r.donation_status ===
+              status
+        )
+
+        .sort((a, b) =>
+
+          sort === "desc"
+
+            ? new Date(
+                b.createdAt
+              ) -
+              new Date(
+                a.createdAt
+              )
+
+            : new Date(
+                a.createdAt
+              ) -
+              new Date(
+                b.createdAt
+              )
+        );
+
+    }, [
+      requests,
+      search,
+      category,
+      status,
+      sort
+    ]);
 
   const resetFilters = () => {
+
     setSearch("");
+
     setCategory("all");
+
     setStatus("all");
+
     setSort("desc");
   };
 
@@ -214,86 +337,165 @@ export const HomePage = () => {
     <PageContainer>
 
       {/* ACCOUNT STATUS */}
-      {user && user.status !== "active" && (
+      {user &&
+        user.status !== "active" && (
+
         <Banner>
+
           <span>
-            Your account is <strong>{user.status}</strong>.
+            Your account is{" "}
+            <strong>
+              {user.status}
+            </strong>.
           </span>
 
           <Button
-            handleClick={() => navigate(`/profile`)}
+            handleClick={() =>
+              navigate("/profile")
+            }
             content="Activate"
           />
+
         </Banner>
       )}
 
       {/* HEADER */}
       <Header>
-        <Title>Available Requests</Title>
 
-        <Button
-          handleClick={() => navigate(`/requests/me`)}
-          content="My Requests"
-        />
+        <Title>
+          Available Requests
+        </Title>
+
+        {/* ONLY SEEKERS */}
+        {user?.role === "seeker" && (
+          <Button
+            handleClick={() =>
+              navigate("/requests/me")
+            }
+            content="My Requests"
+          />
+        )}
+
       </Header>
 
       {/* FILTERS */}
       <Controls>
+
         <Input
           placeholder="Search..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) =>
+            setSearch(
+              e.target.value
+            )
+          }
         />
 
         <Select
           value={category}
-          onChange={(e) => setCategory(e.target.value)}
+          onChange={(e) =>
+            setCategory(
+              e.target.value
+            )
+          }
         >
-          <option value="all">All Categories</option>
+
+          <option value="all">
+            All Categories
+          </option>
+
           {categories.map((c) => (
-            <option key={c.id} value={c.id}>
+            <option
+              key={c.id}
+              value={c.id}
+            >
               {c.name}
             </option>
           ))}
+
         </Select>
 
         <Select
           value={status}
-          onChange={(e) => setStatus(e.target.value)}
+          onChange={(e) =>
+            setStatus(
+              e.target.value
+            )
+          }
         >
-          <option value="all">All</option>
-          <option value="partially">Partially</option>
-          <option value="not_satisfied">Not Satisfied</option>
+
+          <option value="all">
+            All
+          </option>
+
+          <option value="partially">
+            Partially
+          </option>
+
+          <option value="not_satisfied">
+            Not Satisfied
+          </option>
+
         </Select>
 
         <Select
           value={sort}
-          onChange={(e) => setSort(e.target.value)}
+          onChange={(e) =>
+            setSort(
+              e.target.value
+            )
+          }
         >
-          <option value="desc">Newest</option>
-          <option value="asc">Oldest</option>
+
+          <option value="desc">
+            Newest
+          </option>
+
+          <option value="asc">
+            Oldest
+          </option>
+
         </Select>
 
-        <ResetBtn onClick={resetFilters}>Reset</ResetBtn>
+        <ResetBtn
+          onClick={resetFilters}
+        >
+          Reset
+        </ResetBtn>
+
       </Controls>
 
       {/* LIST */}
       {filtered.length > 0 ? (
+
         <List>
+
           {filtered.map((r) => (
             <RequestCard
               key={r.id}
               request={r}
               currentUser={user}
               categories={categories}
-              onDonate={(req) => setSelectedRequest(req)}
+              onDonate={(req) =>
+                setSelectedRequest(req)
+              }
             />
           ))}
+
         </List>
+
       ) : (
+
         <EmptyContainer>
-          <EmptyImage src={noData} />
-          <EmptyText>No requests available</EmptyText>
+
+          <EmptyImage
+            src={noData}
+          />
+
+          <EmptyText>
+            No requests available
+          </EmptyText>
+
         </EmptyContainer>
       )}
 
@@ -301,9 +503,15 @@ export const HomePage = () => {
       {selectedRequest && (
         <DonationModal
           request={selectedRequest}
-          onClose={() => setSelectedRequest(null)}
+          onClose={() =>
+            setSelectedRequest(null)
+          }
           onSuccess={async () => {
-            setSelectedRequest(null);
+
+            setSelectedRequest(
+              null
+            );
+
             await fetchData();
           }}
         />

@@ -3,6 +3,7 @@ import styled from "styled-components";
 import axios from "../api/axios";
 import { PageContainer } from "../components/PageContainer";
 import { colors } from "../style/style";
+import { useNavigate } from "react-router-dom";
 
 // =====================
 // STYLES
@@ -29,15 +30,20 @@ const Card = styled.div`
   border-radius: 12px;
   box-shadow: 0 0 10px rgba(0,0,0,0.05);
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  gap: 10px;
 `;
 
 const Input = styled.input`
   padding: 10px;
   border-radius: 8px;
   border: 1px solid #ddd;
-  width: 200px;
+`;
+
+const TextArea = styled.textarea`
+  padding: 10px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
 `;
 
 const Button = styled.button`
@@ -56,6 +62,7 @@ const Actions = styled.div`
 
 const Form = styled.div`
   display: flex;
+  flex-direction: column;
   gap: 10px;
   margin-bottom: 20px;
 `;
@@ -64,14 +71,22 @@ const Loader = styled.p`
   text-align: center;
 `;
 
+const Error = styled.p`
+  color: red;
+`;
+
 // =====================
 // COMPONENT
 // =====================
 export const ManageCategories = () => {
   const [categories, setCategories] = useState([]);
-  const [newName, setNewName] = useState("");
+  const [form, setForm] = useState({
+    name: "",
+    description: ""
+  });
+  const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
-
+  const navigate = useNavigate()
   // =====================
   // FETCH
   // =====================
@@ -81,6 +96,12 @@ export const ManageCategories = () => {
       setCategories(res.data);
     } catch (err) {
       console.error(err);
+
+    // ✅ HANDLE 403
+    if (err.response?.status === 403) {
+      navigate("/not-found"); // or "/403" if you have a dedicated page
+      return;
+    }
     } finally {
       setLoading(false);
     }
@@ -91,32 +112,55 @@ export const ManageCategories = () => {
   }, []);
 
   // =====================
+  // VALIDATION
+  // =====================
+  const validate = () => {
+    if (!form.name.trim()) return "Name is required";
+    if (!form.description.trim()) return "Description is required";
+    return null;
+  };
+
+  // =====================
   // CREATE
   // =====================
   const createCategory = async () => {
-    if (!newName.trim()) return;
+    const validationError = validate();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     try {
-      const res = await axios.post("/categories", { name: newName });
+      setError("");
+
+      const res = await axios.post("/categories", form);
 
       setCategories((prev) => [...prev, res.data]);
-      setNewName("");
+
+      setForm({ name: "", description: "" });
 
     } catch (err) {
       console.error(err);
-      alert("Failed to create category");
+      setError("Failed to create category");
     }
   };
 
   // =====================
   // UPDATE
   // =====================
-  const updateCategory = async (id, name) => {
+  const updateCategory = async (id, data) => {
+    if (!data.name.trim() || !data.description.trim()) {
+      alert("All fields required");
+      return;
+    }
+
     try {
-      await axios.patch(`/categories/${id}`, { name });
+      await axios.patch(`/categories/${id}`, data);
 
       setCategories((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, name } : c))
+        prev.map((c) =>
+          c.id === id ? { ...c, ...data } : c
+        )
       );
 
     } catch (err) {
@@ -134,10 +178,13 @@ export const ManageCategories = () => {
     try {
       await axios.delete(`/categories/${id}`);
 
-      setCategories((prev) => prev.filter((c) => c.id !== id));
+      setCategories((prev) =>
+        prev.filter((c) => c.id !== id)
+      );
 
     } catch (err) {
       console.error(err);
+
       alert("Delete failed");
     }
   };
@@ -152,16 +199,28 @@ export const ManageCategories = () => {
         <Title>Manage Categories</Title>
       </Header>
 
-      {/* CREATE */}
+      {/* CREATE FORM */}
       <Form>
         <Input
-          placeholder="New category..."
-          value={newName}
-          onChange={(e) => setNewName(e.target.value)}
+          placeholder="Category name"
+          value={form.name}
+          onChange={(e) =>
+            setForm({ ...form, name: e.target.value })
+          }
         />
 
+        <TextArea
+          placeholder="Category description"
+          value={form.description}
+          onChange={(e) =>
+            setForm({ ...form, description: e.target.value })
+          }
+        />
+
+        {error && <Error>{error}</Error>}
+
         <Button onClick={createCategory}>
-          Add
+          Add Category
         </Button>
       </Form>
 
@@ -188,27 +247,44 @@ export const ManageCategories = () => {
 };
 
 // =====================
-// CATEGORY ITEM COMPONENT
+// CATEGORY ITEM
 // =====================
 const CategoryItem = ({ category, onUpdate, onDelete }) => {
   const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(category.name);
+
+  const [form, setForm] = useState({
+    name: category.name,
+    description: category.description || ""
+  });
 
   const save = () => {
-    if (!name.trim()) return;
-    onUpdate(category.id, name);
+    onUpdate(category.id, form);
     setEditing(false);
   };
 
   return (
     <Card>
       {editing ? (
-        <Input
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
+        <>
+          <Input
+            value={form.name}
+            onChange={(e) =>
+              setForm({ ...form, name: e.target.value })
+            }
+          />
+
+          <TextArea
+            value={form.description}
+            onChange={(e) =>
+              setForm({ ...form, description: e.target.value })
+            }
+          />
+        </>
       ) : (
-        <span>{category.name}</span>
+        <>
+          <strong>{category.name}</strong>
+          <p>{category.description}</p>
+        </>
       )}
 
       <Actions>
@@ -218,7 +294,10 @@ const CategoryItem = ({ category, onUpdate, onDelete }) => {
           <Button onClick={() => setEditing(true)}>Edit</Button>
         )}
 
-        <Button bg={colors.red} onClick={() => onDelete(category.id)}>
+        <Button
+          bg={colors.red}
+          onClick={() => onDelete(category.id)}
+        >
           Delete
         </Button>
       </Actions>
